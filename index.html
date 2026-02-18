@@ -1097,7 +1097,7 @@
 
     <section class="extraction-terminal-section" id="extraction-terminal">
         <div class="et-header reveal">
-            <p class="et-eyebrow">// SHADOW PROTOCOL v2.0</p>
+            <p class="et-eyebrow">// SHADOW PROTOCOL v2.01 (FIXED)</p>
             <h2 class="et-title">EXTRACTION <span>TERMINAL</span></h2>
         </div>
 
@@ -1640,10 +1640,14 @@
                 document.querySelectorAll('.et-input-wrap').forEach(w => w.classList.remove('error'));
                 document.querySelectorAll('.et-error-msg').forEach(m => m.classList.remove('visible'));
 
+                // Add a visible indicator to the terminal
+                printLine("> VALIDATION PROTOCOL INITIATED...", "dim");
+
                 // Explicitly ensure access key error is hidden
                 const accessError = document.getElementById('et-access-error');
                 const accessWrap = document.getElementById('et-access-wrap');
                 if (accessError) accessError.classList.remove('visible');
+
                 if (accessWrap) accessWrap.classList.remove('error');
 
                 if (!handle) {
