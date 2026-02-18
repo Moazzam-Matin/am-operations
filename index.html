@@ -1657,9 +1657,8 @@
                 }
 
                 if (!accessKey) {
-                    document.getElementById('et-access-wrap').classList.add('error');
-                    document.getElementById('et-access-error').classList.add('visible');
-                    isValid = false;
+                    // Operational key is now optional for local simulation
+                    console.warn("SHADOW_PROTOCOL: No access key provided. Running in simulation mode.");
                 }
 
                 return isValid;
@@ -1831,7 +1830,9 @@ Keep each line under 90 characters. Output ONLY the ">" prefixed lines. No heade
                 const [, aiText] = await Promise.all([
                     Promise.all(preLines.map(l => printLineAfterDelay(l.text, l.delay, l.cls))),
                     callGemini(handle, country, currency, symbol, price).catch(err => {
-                        return `> ERROR: ${err.message}\n> FALLING BACK TO LOCAL CALCULATION...\n> PROJECTED MONTHLY REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
+                        const isMissingKey = err.message.includes("ACCESS_KEY_MISSING");
+                        const statusMsg = isMissingKey ? "> SIMULATION MODE ACTIVE: NO API KEY PROVIDED..." : `> API ERROR: ${err.message}`;
+                        return `${statusMsg}\n> FALLING BACK TO LOCAL CALCULATION PROTOCOL...\n> PROJECTED MONTHLY REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
                     })
                 ]);
 
