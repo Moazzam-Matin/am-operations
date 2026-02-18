@@ -1634,9 +1634,17 @@
                 const price = priceInput.value.trim();
                 const accessKey = document.getElementById('et-access-key').value.trim();
 
+                console.log("SHADOW_PROTOCOL: Starting validation...");
+
                 // Clear all previous errors first
                 document.querySelectorAll('.et-input-wrap').forEach(w => w.classList.remove('error'));
                 document.querySelectorAll('.et-error-msg').forEach(m => m.classList.remove('visible'));
+
+                // Explicitly ensure access key error is hidden
+                const accessError = document.getElementById('et-access-error');
+                const accessWrap = document.getElementById('et-access-wrap');
+                if (accessError) accessError.classList.remove('visible');
+                if (accessWrap) accessWrap.classList.remove('error');
 
                 if (!handle) {
                     document.getElementById('et-handle-wrap').classList.add('error');
@@ -1657,9 +1665,12 @@
                 }
 
                 if (!accessKey) {
-                    // Operational key is now optional for local simulation
-                    console.warn("SHADOW_PROTOCOL: No access key provided. Running in simulation mode.");
+                    console.log("SHADOW_PROTOCOL: Access key missing. Skipping AI validation.");
+                } else {
+                    console.log("SHADOW_PROTOCOL: Access key detected.");
                 }
+
+                console.log("SHADOW_PROTOCOL: Validation complete. isValid =", isValid);
 
                 return isValid;
             }
