@@ -14,8 +14,8 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'GEMINI_API_KEY not configured on server.' });
     }
 
-    // Using gemini-1.5-flash for performance and reliability
-    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // Using gemini-1.5-flash (Stable) on v1 API for broadest compatibility
+    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const prompt = `You are the Shadow Protocol AI for A&M Operations — a ruthless, high-precision revenue extraction system.
 
