@@ -698,7 +698,7 @@
         }
 
         .et-access-input {
-            font-size: 10px !important;
+            font-size: 13px !important;
             opacity: 0.5;
             transition: opacity 0.3s;
         }
@@ -1167,11 +1167,12 @@
                 <!-- Access Key (Security) -->
                 <div class="et-access-key-group">
                     <label class="et-label" style="font-size: 9px;">OPERATIONAL ACCESS KEY (GEMINI_API_KEY)</label>
-                    <div class="et-input-wrap" style="margin-top: 5px;">
+                    <div class="et-input-wrap" style="margin-top: 5px;" id="et-access-wrap">
                         <span class="et-prefix" style="font-size: 12px; line-height: 32px;">&#128274;</span>
                         <input type="password" id="et-access-key" class="et-input et-access-input"
                             placeholder="Enter key for AI analysis..." style="padding: 5px 12px; height: 32px;">
                     </div>
+                    <span class="et-error-msg" id="et-access-error">Operational access key required</span>
                 </div>
             </div>
 
@@ -1631,6 +1632,7 @@
                 const handle = handleInput.value.trim();
                 const country = countryInput.value.trim();
                 const price = priceInput.value.trim();
+                const accessKey = document.getElementById('et-access-key').value.trim();
 
                 // Clear all previous errors first
                 document.querySelectorAll('.et-input-wrap').forEach(w => w.classList.remove('error'));
@@ -1654,17 +1656,32 @@
                     isValid = false;
                 }
 
+                if (!accessKey) {
+                    document.getElementById('et-access-wrap').classList.add('error');
+                    document.getElementById('et-access-error').classList.add('visible');
+                    isValid = false;
+                }
+
                 return isValid;
             }
 
             // Clear error on input
-            [handleInput, countryInput, priceInput].forEach(input => {
+            [handleInput, countryInput, priceInput, document.getElementById('et-access-key')].forEach(input => {
                 input.addEventListener('input', () => {
                     const wrap = input.closest('.et-input-wrap');
-                    const error = input.closest('.et-input-group').querySelector('.et-error-msg');
+                    const error = input.closest('.et-input-group, .et-access-key-group').querySelector('.et-error-msg');
                     if (wrap) wrap.classList.remove('error');
                     if (error) error.classList.remove('visible');
                 });
+            });
+
+            // Persistence Protocol: Load/Save Access Key
+            const accessKeyInput = document.getElementById('et-access-key');
+            const savedKey = localStorage.getItem('shadow_ops_key');
+            if (savedKey) accessKeyInput.value = savedKey;
+
+            accessKeyInput.addEventListener('change', () => {
+                localStorage.setItem('shadow_ops_key', accessKeyInput.value.trim());
             });
 
             // --- Terminal Animation ---
