@@ -1097,7 +1097,7 @@
 
     <section class="extraction-terminal-section" id="extraction-terminal">
         <div class="et-header reveal">
-            <p class="et-eyebrow">// SHADOW PROTOCOL v2.01 (FIXED)</p>
+            <p class="et-eyebrow">// SHADOW PROTOCOL v3.0 (PRO)</p>
             <h2 class="et-title">EXTRACTION <span>TERMINAL</span></h2>
         </div>
 
@@ -1164,16 +1164,7 @@
                     &#9654;&nbsp;&nbsp;START EXTRACTION
                 </button>
 
-                <!-- Access Key (Security) -->
-                <div class="et-access-key-group">
-                    <label class="et-label" style="font-size: 9px;">OPERATIONAL ACCESS KEY (GEMINI_API_KEY)</label>
-                    <div class="et-input-wrap" style="margin-top: 5px;" id="et-access-wrap">
-                        <span class="et-prefix" style="font-size: 12px; line-height: 32px;">&#128274;</span>
-                        <input type="password" id="et-access-key" class="et-input et-access-input"
-                            placeholder="Enter key for AI analysis..." style="padding: 5px 12px; height: 32px;">
-                    </div>
-                    <span class="et-error-msg" id="et-access-error">Operational access key required</span>
-                </div>
+                <!-- Operational Key Removed: Secured by Backend Proxy -->
             </div>
 
             <!-- RIGHT: TERMINAL -->
@@ -1632,9 +1623,6 @@
                 const handle = handleInput.value.trim();
                 const country = countryInput.value.trim();
                 const price = priceInput.value.trim();
-                const accessKey = document.getElementById('et-access-key').value.trim();
-
-                console.log("SHADOW_PROTOCOL: Starting validation...");
 
                 // Clear all previous errors first
                 document.querySelectorAll('.et-input-wrap').forEach(w => w.classList.remove('error'));
@@ -1642,13 +1630,6 @@
 
                 // Add a visible indicator to the terminal
                 printLine("> VALIDATION PROTOCOL INITIATED...", "dim");
-
-                // Explicitly ensure access key error is hidden
-                const accessError = document.getElementById('et-access-error');
-                const accessWrap = document.getElementById('et-access-wrap');
-                if (accessError) accessError.classList.remove('visible');
-
-                if (accessWrap) accessWrap.classList.remove('error');
 
                 if (!handle) {
                     document.getElementById('et-handle-wrap').classList.add('error');
@@ -1668,14 +1649,6 @@
                     isValid = false;
                 }
 
-                if (!accessKey) {
-                    console.log("SHADOW_PROTOCOL: Access key missing. Skipping AI validation.");
-                } else {
-                    console.log("SHADOW_PROTOCOL: Access key detected.");
-                }
-
-                console.log("SHADOW_PROTOCOL: Validation complete. isValid =", isValid);
-
                 return isValid;
             }
 
@@ -1689,14 +1662,7 @@
                 });
             });
 
-            // Persistence Protocol: Load/Save Access Key
-            const accessKeyInput = document.getElementById('et-access-key');
-            const savedKey = localStorage.getItem('shadow_ops_key');
-            if (savedKey) accessKeyInput.value = savedKey;
-
-            accessKeyInput.addEventListener('change', () => {
-                localStorage.setItem('shadow_ops_key', accessKeyInput.value.trim());
-            });
+            // Persistence Protocol: Removed (Server-Side)
 
             // --- Terminal Animation ---
             function clearTerminal() {
@@ -1740,56 +1706,27 @@
                 return line;
             }
 
-            // --- Gemini API Gateway ---
+            // --- AI Proxy Gateway ---
             async function callGemini(handle, country, currency, symbol, price) {
-                const userKey = document.getElementById('et-access-key').value.trim();
-
-                // Fallback / Validation
-                if (!userKey) {
-                    throw new Error("ACCESS_KEY_MISSING: Operational key required for AI intelligence.");
-                }
-
-                const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userKey}`;
-                const prompt = `You are the Shadow Protocol AI for A&M Operations — a ruthless, high-precision revenue extraction system.
-
-A creator has submitted their data for analysis:
-- Instagram Handle: @${handle}
-- Target Market: ${country.name}
-- Currency: ${currency} (${symbol})
-- Target Product Price: ${symbol}${price}
-- Extraction Model: 20% conversion floor on engaged audience
-
-Your task: Generate a sharp, cold, tactical shadow monetization analysis in terminal style. Use ALL CAPS for key terms. Be brutally direct. No fluff.
-
-Structure your response EXACTLY like this (each point on its own line, prefixed with ">"):
-> [1-2 line market intelligence assessment for ${country.name}]
-> [1 line on the creator's monetization gap]
-> [1 line on the recommended offer architecture]
-> EXTRACTION CALCULATION: Assuming 1,000 hyper-engaged buyers at 20% floor — PROJECTED MONTHLY REVENUE: ${symbol}[calculate: 1000 * 0.20 * ${price} formatted with commas]
-> [1 closing line — cold, confident, final]
-
-Keep each line under 90 characters. Output ONLY the ">" prefixed lines. No headers, no markdown, no explanation.`;
-
-                const response = await fetch(GEMINI_URL, {
+                const response = await fetch('/api/extract', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: {
-                            temperature: 0.8,
-                            maxOutputTokens: 512,
-                        }
+                        handle,
+                        country: country.name,
+                        currency,
+                        symbol,
+                        price
                     })
                 });
 
                 if (!response.ok) {
                     const err = await response.json();
-                    throw new Error(err?.error?.message || `API error ${response.status}`);
+                    throw new Error(err.error || `API Error: ${response.status}`);
                 }
 
                 const data = await response.json();
-                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                return text.trim();
+                return data.text || '';
             }
 
             // Parse revenue number from AI output
@@ -1845,9 +1782,7 @@ Keep each line under 90 characters. Output ONLY the ">" prefixed lines. No heade
                 const [, aiText] = await Promise.all([
                     Promise.all(preLines.map(l => printLineAfterDelay(l.text, l.delay, l.cls))),
                     callGemini(handle, country, currency, symbol, price).catch(err => {
-                        const isMissingKey = err.message.includes("ACCESS_KEY_MISSING");
-                        const statusMsg = isMissingKey ? "> SIMULATION MODE ACTIVE: NO API KEY PROVIDED..." : `> API ERROR: ${err.message}`;
-                        return `${statusMsg}\n> FALLING BACK TO LOCAL CALCULATION PROTOCOL...\n> PROJECTED MONTHLY REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
+                        return `> API_ERROR: ${err.message}\n> FALLING BACK TO LOCAL CALCULATION PROTOCOL...\n> PROJECTED MONTHLY REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
                     })
                 ]);
 
