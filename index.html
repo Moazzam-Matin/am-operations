@@ -1097,7 +1097,7 @@
 
     <section class="extraction-terminal-section" id="extraction-terminal">
         <div class="et-header reveal">
-            <p class="et-eyebrow">// SHADOW PROTOCOL v3.0 (PRO)</p>
+            <p class="et-eyebrow">// SHADOW PROTOCOL v3.01 (STABLE)</p>
             <h2 class="et-title">EXTRACTION <span>TERMINAL</span></h2>
         </div>
 
@@ -1628,8 +1628,7 @@
                 document.querySelectorAll('.et-input-wrap').forEach(w => w.classList.remove('error'));
                 document.querySelectorAll('.et-error-msg').forEach(m => m.classList.remove('visible'));
 
-                // Add a visible indicator to the terminal
-                printLine("> VALIDATION PROTOCOL INITIATED...", "dim");
+                console.log("SHADOW_PROTOCOL: Validation initiated...");
 
                 if (!handle) {
                     document.getElementById('et-handle-wrap').classList.add('error');
@@ -1653,11 +1652,11 @@
             }
 
             // Clear error on input
-            [handleInput, countryInput, priceInput, document.getElementById('et-access-key')].forEach(input => {
+            [handleInput, countryInput, priceInput].forEach(input => {
                 input.addEventListener('input', () => {
                     const wrap = input.closest('.et-input-wrap');
-                    const error = input.closest('.et-input-group, .et-access-key-group').querySelector('.et-error-msg');
                     if (wrap) wrap.classList.remove('error');
+                    const error = wrap?.parentElement?.querySelector('.et-error-msg');
                     if (error) error.classList.remove('visible');
                 });
             });
