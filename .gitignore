@@ -1,0 +1,16 @@
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+# Project Workspace
+.gemini/
+.agent/
+brain/
+implementation_plan.md
+task.md
+walkthrough.md
+
+# Sensitive Configs (Future Proofing)
+.env
+config.json
+*.key

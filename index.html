@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="en" class="lenis">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A&M Operations | Shadow Monetization</title>
+    <!-- Primary Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* =========================================
+           1. CORE STACKING & RESET
+           ========================================= */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000000;
+            color: #FFFFFF;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            /* Force the browser to treat body as a stacking context */
+            position: relative;
+        }
+
+        /* The Ultimate Background Layer (Z: 1) */
+        #shadow-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            background-color: #000000;
+            overflow: hidden;
+        }
+
+        #three-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.7;
+            /* Highly visible silver chrome effect */
+        }
+
+        /* The Content Layer (Z: 2) */
+        #main-application {
+            position: relative;
+            z-index: 2;
+            background: transparent;
+        }
+
+        /* =========================================
+           2. BACKGROUND SYSTEM COMPONENTS
+           ========================================= */
+        /* Empty - Background handled by Three.js canvas */
+
+        /* =========================================
+           3. HEADER & NAVIGATION
+           ========================================= */
+        .site-header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 1000;
+        }
+
+        .logo-box {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-img {
+            height: 45px;
+            width: auto;
+        }
+
+        .logo-text h1 {
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #F5F5F5;
+            line-height: 1;
+        }
+
+        .logo-text p {
+            font-size: 10px;
+            font-weight: 300;
+            color: #D4AF37;
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 40px;
+        }
+
+        .nav-link {
+            color: #FFFFFF;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            transition: color 0.3s;
+            text-transform: uppercase;
+        }
+
+        .nav-link:hover {
+            color: #D4AF37;
+        }
+
+        /* =========================================
+           4. HERO SECTION
+           ========================================= */
+        .hero {
+            padding: 200px 20px 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .hero-h1 {
+            font-size: clamp(32px, 8vw, 64px);
+            font-weight: 900;
+            line-height: 1;
+            max-width: 1000px;
+            margin-bottom: 30px;
+            letter-spacing: -2px;
+            color: #F5F5F5;
+        }
+
+        .hero-p {
+            font-size: 18px;
+            font-weight: 300;
+            color: #C0C0C0;
+            line-height: 1.6;
+            max-width: 800px;
+            margin-bottom: 80px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .card {
+            background: rgba(10, 10, 10, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 40px;
+            text-align: left;
+            backdrop-filter: blur(10px);
+            transition: border-color 0.3s, transform 0.3s;
+        }
+
+        .card:hover {
+            border-color: rgba(212, 175, 55, 0.4);
+            transform: translateY(-5px);
+        }
+
+        .card-h3 {
+            color: #D4AF37;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+
+        .card-p {
+            font-size: 14px;
+            color: #E0E0E0;
+            font-weight: 300;
+            line-height: 1.6;
+        }
+
+        /* =========================================
+           5. UTILITIES & ANIMATIONS
+           ========================================= */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #diagnostic-ping {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-family: monospace;
+            font-size: 10px;
+            color: #D4AF37;
+            z-index: 9999;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .site-header {
+                padding: 15px 20px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Background Engine (3D Monolith) -->
+    <div id="shadow-background">
+        <canvas id="three-canvas"></canvas>
+    </div>
+
+    <!-- Diagnostic -->
+    <div id="diagnostic-ping">SYSTEM STATUS: 3D KINETIC ACTIVE</div>
+
+    <!-- Application Wrapper -->
+    <div id="main-application">
+
+        <header class="site-header">
+            <div class="logo-box">
+                <img src="logo.png" alt="A&M" class="logo-img">
+                <div class="logo-text">
+                    <h1>A&M OPERATIONS</h1>
+                    <p>REVENUE ENGINEERED</p>
+                </div>
+            </div>
+            <nav class="nav-links">
+                <a href="#hero" class="nav-link">HOME</a>
+                <a href="#extraction-terminal" class="nav-link">REVENUE AUDIT</a>
+                <a href="#site-footer" class="nav-link">ABOUT US</a>
+            </nav>
+        </header>
+
+        <section class="hero" id="hero">
+            <h1 class="hero-h1 reveal">YOU BUILT THE AUDIENCE.<br>WE ENGINEER THE EXTRACTION.</h1>
+            <p class="hero-p reveal">Attention is cheap. Revenue is engineered. You are currently leaving millions on
+                the table because you are a creator, not an architect. A&M Operations acts as your Shadow Team—a silent,
+                backend powerhouse that builds, launches, and scales your monetization systems without ever stepping
+                into the spotlight. You get the glory. We secure the floor.</p>
+
+            <div class="grid-3">
+                <div class="card reveal" style="transition-delay: 0.1s;">
+                    <h3 class="card-h3">THE LEAKY FUNNEL</h3>
+                    <p class="card-p">You have the trust, but no capture mechanism. We analyze your hidden
+                        transformation and stop the revenue bleed.</p>
+                </div>
+                <div class="card reveal" style="transition-delay: 0.2s;">
+                    <h3 class="card-h3">THE SHADOW BUILD</h3>
+                    <p class="card-p">Zero upfront capital. Zero face on camera for us. We build high-converting digital
+                        products and funnels entirely in the dark.</p>
+                </div>
+                <div class="card reveal" style="transition-delay: 0.3s;">
+                    <h3 class="card-h3">20% EXTRACTION</h3>
+                    <p class="card-p">We don't rely on algorithms. We run a high-intensity capture model designed to
+                        convert 20% of your hyper-engaged audience.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Restoration: Core Argument Section -->
+        <style>
+            .core-argument {
+                padding: 100px 40px;
+                position: relative;
+                z-index: 10;
+            }
+
+            .argument-hook {
+                border-top: 2px solid #C0C0C0;
+                padding-top: 40px;
+                margin-bottom: 80px;
+            }
+
+            .hook-headline {
+                font-weight: 900;
+                font-size: 60px;
+                color: #FFFFFF;
+                text-transform: uppercase;
+                letter-spacing: -2px;
+                line-height: 1;
+                max-width: 1200px;
+            }
+
+            .argument-narrative {
+                display: flex;
+                margin-bottom: 100px;
+                gap: 40px;
+            }
+
+            .narrative-left {
+                flex: 0 0 50px;
+                display: flex;
+                justify-content: center;
+            }
+
+            .vertical-text {
+                writing-mode: vertical-rl;
+                text-orientation: mixed;
+                transform: rotate(180deg);
+                font-size: 12px;
+                color: #D4AF37;
+                font-weight: 700;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+                white-space: nowrap;
+            }
+
+            .narrative-right {
+                flex: 1;
+                max-width: 900px;
+            }
+
+            .narrative-text {
+                font-weight: 300;
+                font-size: 24px;
+                color: #C0C0C0;
+                line-height: 1.5;
+            }
+
+            .highlight-gold {
+                color: #D4AF37;
+                font-weight: 500;
+            }
+
+            .extraction-protocol {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                border-top: 1px solid #1A1A1A;
+            }
+
+            .protocol-column {
+                padding: 40px 30px;
+                border-right: 1px solid rgba(192, 192, 192, 0.2);
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .protocol-column:last-child {
+                border-right: none;
+            }
+
+            .protocol-number {
+                font-weight: 700;
+                font-size: 14px;
+                color: #D4AF37;
+            }
+
+            .protocol-title {
+                font-weight: 800;
+                font-size: 24px;
+                color: #FFFFFF;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+
+            .protocol-desc {
+                font-weight: 300;
+                font-size: 16px;
+                color: #C0C0C0;
+                line-height: 1.6;
+            }
+        </style>
+
+        <section class="core-argument">
+            <div class="argument-hook reveal">
+                <h2 class="hook-headline">MOST CREATORS ARE ACCIDENTALLY SUCCESSFUL. WE ARE INTENTIONALLY PROFITABLE.
+                </h2>
+            </div>
+
+            <div class="argument-narrative">
+                <div class="narrative-left reveal">
+                    <span class="vertical-text">THE REALITY</span>
+                </div>
+                <div class="narrative-right reveal" style="transition-delay: 0.1s;">
+                    <p class="narrative-text">You have built an asset based on trust. But you are fighting a two-front
+                        war: Creating content and building business infrastructure. You cannot do both at an elite
+                        level. <span class="highlight-gold">A&M Operations is your Shadow Partner.</span> We don't want
+                        your fame; we want your floor. While you manage the attention, we engineer the extraction
+                        systems that turn followers into a predictable, high-yield revenue stream.</p>
+                </div>
+            </div>
+
+            <div class="extraction-protocol">
+                <div class="protocol-column reveal">
+                    <span class="protocol-number">01</span>
+                    <h3 class="protocol-title">DIAGNOSIS.</h3>
+                    <p class="protocol-desc">We perform a deep-tissue audit of your engagement metrics to find where the
+                        revenue is leaking. We don’t guess; we calculate.</p>
+                </div>
+                <div class="protocol-column reveal" style="transition-delay: 0.1s;">
+                    <span class="protocol-number">02</span>
+                    <h3 class="protocol-title">ARCHITECTURE.</h3>
+                    <p class="protocol-desc">We build the back-end. Private communities, high-ticket digital assets, and
+                        automated funnels. All built under our shadow protocol.</p>
+                </div>
+                <div class="protocol-column reveal" style="transition-delay: 0.2s;">
+                    <span class="protocol-number">03</span>
+                    <h3 class="protocol-title">EXTRACTION.</h3>
+                    <p class="protocol-desc">The 20% Rule. We deploy high-intensity capture systems designed to convert
+                        your core audience at a 20% floor. You wake up to the revenue; we manage the machine.</p>
+                </div>
+            </div>
+        </section>
+
+
+    </div>
+
+    <!-- ============================================
+             EXTRACTION TERMINAL SECTION
+             ============================================ -->
+    <style>
+        /* ---- Section Shell ---- */
+        .extraction-terminal-section {
+            background: #030303;
+            border-top: 1px solid #D4AF37;
+            padding: 60px 40px;
+            position: relative;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .extraction-terminal-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 39px,
+                    rgba(212, 175, 55, 0.03) 40px),
+                repeating-linear-gradient(90deg,
+                    transparent,
+                    transparent 39px,
+                    rgba(212, 175, 55, 0.03) 40px);
+            pointer-events: none;
+        }
+
+        .et-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .et-eyebrow {
+            font-size: 11px;
+            font-weight: 700;
+            color: #D4AF37;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .et-title {
+            font-size: clamp(28px, 4vw, 48px);
+            font-weight: 900;
+            color: #FFFFFF;
+            letter-spacing: -1px;
+            text-transform: uppercase;
+        }
+
+        .et-title span {
+            color: #D4AF37;
+        }
+
+        /* ---- Split Layout ---- */
+        .et-split {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            border: 1px solid rgba(212, 175, 55, 0.25);
+            background: rgba(212, 175, 55, 0.25);
+        }
+
+        /* ---- LEFT PANEL ---- */
+        .et-left {
+            background: #0A0A0A;
+            padding: 30px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .et-panel-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #D4AF37;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            padding-bottom: 12px;
+            margin-bottom: 4px;
+        }
+
+        /* Input groups */
+        .et-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            /* Ensure dropdown positions correctly */
+        }
+
+        .et-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #808080;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .et-input-wrap {
+            display: flex;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.03);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .et-input-wrap:focus-within {
+            border-color: #D4AF37;
+            box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.3), inset 0 0 20px rgba(212, 175, 55, 0.04);
+        }
+
+        /* Country selector specifics */
+        .et-country-wrap {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .et-country-input {
+            width: 100%;
+            cursor: text;
+        }
+
+        .et-chevron {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            pointer-events: none;
+            transition: transform 0.3s ease;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .et-country-wrap:focus-within .et-chevron {
+            color: #D4AF37;
+            transform: translateY(-50%) rotate(180deg);
+        }
+
+        .et-prefix {
+            padding: 0 14px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #D4AF37;
+            font-family: 'JetBrains Mono', monospace;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            line-height: 44px;
+            user-select: none;
+        }
+
+        .et-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #FFFFFF;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 400;
+            padding: 10px 16px;
+            letter-spacing: 1px;
+        }
+
+        .et-input::placeholder {
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Country dropdown */
+        .et-country-wrap {
+            position: relative;
+        }
+
+        .et-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #111111;
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 999;
+            display: none;
+            scrollbar-width: thin;
+            scrollbar-color: #D4AF37 #111;
+        }
+
+        .et-dropdown.open {
+            display: block;
+        }
+
+        .et-dropdown-item {
+            padding: 12px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: #C0C0C0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .et-dropdown-item:hover {
+            background: rgba(212, 175, 55, 0.1);
+            color: #FFD700;
+        }
+
+        .et-dropdown-item .item-currency {
+            font-size: 11px;
+            color: #D4AF37;
+            opacity: 0.7;
+        }
+
+        .et-dropdown-empty {
+            padding: 14px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #555;
+            text-align: center;
+        }
+
+        /* Error States */
+        .et-input-wrap.error {
+            border-color: #ff4d4d !important;
+            box-shadow: 0 0 10px rgba(255, 77, 77, 0.1) !important;
+        }
+
+        .et-error-msg {
+            color: #ff4d4d;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            margin-top: 6px;
+            display: none;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .et-error-msg.visible {
+            display: block;
+        }
+
+        /* Access Key Field */
+        .et-access-key-group {
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px dashed rgba(212, 175, 55, 0.1);
+        }
+
+        .et-access-input {
+            font-size: 10px !important;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+
+        .et-access-input:focus {
+            opacity: 1;
+        }
+
+        /* Price field with currency prefix */
+        .et-currency-symbol {
+            min-width: 40px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        /* AI Suggestion Chips */
+        .et-chips-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #555;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .et-chips {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .et-chip {
+            padding: 8px 16px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            background: transparent;
+            color: #D4AF37;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .et-chip::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: #D4AF37;
+            transform: translateX(-100%);
+            transition: transform 0.2s;
+            z-index: 0;
+        }
+
+        .et-chip:hover::before {
+            transform: translateX(0);
+        }
+
+        .et-chip:hover {
+            color: #000;
+        }
+
+        .et-chip span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .et-chip .chip-value {
+            color: rgba(255, 255, 255, 0.5);
+            margin-left: 6px;
+            font-size: 10px;
+        }
+
+        .et-chip:hover .chip-value {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        /* START BUTTON */
+        .et-start-btn {
+            margin-top: 10px;
+            padding: 18px 32px;
+            background: #D4AF37;
+            color: #000000;
+            border: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+        }
+
+        .et-start-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(-100%);
+            transition: transform 0.4s;
+        }
+
+        .et-start-btn:hover::after {
+            transform: translateX(0);
+        }
+
+        .et-start-btn:hover {
+            box-shadow: 0 0 30px rgba(212, 175, 55, 0.5);
+        }
+
+        .et-start-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* ---- RIGHT PANEL (Terminal) ---- */
+        .et-right {
+            background: #000000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .et-terminal-bar {
+            background: #111111;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+        }
+
+        .et-terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .et-terminal-dot.red {
+            background: #FF5F57;
+        }
+
+        .et-terminal-dot.amber {
+            background: #FEBC2E;
+        }
+
+        .et-terminal-dot.green {
+            background: #28C840;
+        }
+
+        .et-terminal-title {
+            margin-left: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #555;
+            letter-spacing: 2px;
+        }
+
+        .et-terminal-body {
+            flex: 1;
+            padding: 24px 28px 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #4ADE80;
+            line-height: 1.8;
+            min-height: 300px;
+            overflow-y: auto;
+            position: relative;
+            background:
+                radial-gradient(ellipse at 50% 0%, rgba(74, 222, 128, 0.04) 0%, transparent 70%);
+        }
+
+        .et-terminal-body::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.08) 2px,
+                    rgba(0, 0, 0, 0.08) 4px);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .et-terminal-line {
+            display: block;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.3s, transform 0.3s;
+            position: relative;
+            z-index: 2;
+        }
+
+        .et-terminal-line.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .et-terminal-line.gold {
+            color: #D4AF37;
+        }
+
+        .et-terminal-line.dim {
+            color: rgba(74, 222, 128, 0.4);
+        }
+
+        .et-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background: #4ADE80;
+            vertical-align: middle;
+            margin-left: 4px;
+            animation: et-blink 1s step-end infinite;
+            position: relative;
+            z-index: 2;
+        }
+
+        @keyframes et-blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* Revenue Reveal */
+        .et-revenue-reveal {
+            padding: 24px 28px 28px;
+            border-top: 1px solid rgba(212, 175, 55, 0.15);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+            background: rgba(212, 175, 55, 0.03);
+        }
+
+        .et-revenue-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .et-revenue-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #555;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .et-revenue-amount {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(28px, 3.5vw, 42px);
+            font-weight: 700;
+            color: #FFD700;
+            letter-spacing: -1px;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+            line-height: 1;
+        }
+
+        .et-revenue-sub {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: rgba(255, 215, 0, 0.4);
+            margin-top: 6px;
+            letter-spacing: 2px;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .et-split {
+                grid-template-columns: 1fr;
+            }
+
+            .et-terminal-body {
+                min-height: 300px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .extraction-terminal-section {
+                padding: 60px 20px;
+            }
+
+            .et-left {
+                padding: 30px 24px;
+            }
+        }
+
+        /* ---- SITE FOOTER ---- */
+        .site-footer {
+            background: #000000;
+            border-top: 1px solid #1A1A1A;
+            padding: 100px 40px 40px;
+            position: relative;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .footer-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            gap: 60px;
+            flex-wrap: wrap;
+        }
+
+        .footer-section {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .footer-heading {
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: #D4AF37;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        .footer-about {
+            font-family: 'Inter', sans-serif;
+            font-weight: 300;
+            font-size: 14px;
+            color: #C0C0C0;
+            line-height: 1.6;
+            max-width: 450px;
+        }
+
+        .footer-connect-row {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .footer-icon-link {
+            color: #FFFFFF;
+            transition: color 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .footer-icon-link:hover {
+            color: #D4AF37;
+        }
+
+        .footer-icon-link svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        .footer-bottom {
+            margin-top: 100px;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 40px;
+        }
+
+        .footer-copyright {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #444444;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 768px) {
+            .footer-container {
+                flex-direction: column;
+                gap: 40px;
+            }
+
+            .site-footer {
+                padding: 60px 24px 30px;
+            }
+
+            .footer-bottom {
+                margin-top: 60px;
+            }
+        }
+    </style>
+
+    <section class="extraction-terminal-section" id="extraction-terminal">
+        <div class="et-header reveal">
+            <p class="et-eyebrow">// SHADOW PROTOCOL v2.0</p>
+            <h2 class="et-title">EXTRACTION <span>TERMINAL</span></h2>
+        </div>
+
+        <div class="et-split reveal">
+
+            <!-- LEFT: THE PROTOCOL -->
+            <div class="et-left">
+                <p class="et-panel-label">// INPUT THE PROTOCOL</p>
+
+                <!-- Instagram Handle -->
+                <div class="et-input-group">
+                    <label class="et-label" for="et-handle">Instagram Handle</label>
+                    <div class="et-input-wrap" id="et-handle-wrap">
+                        <span class="et-prefix">@</span>
+                        <input type="text" id="et-handle" class="et-input" placeholder="your_handle" autocomplete="off"
+                            spellcheck="false">
+                    </div>
+                    <span class="et-error-msg" id="et-handle-error">Handle required for authentication</span>
+                </div>
+
+                <!-- Country Search -->
+                <div class="et-input-group">
+                    <label class="et-label" for="et-country-input">Target Market</label>
+                    <div class="et-input-wrap et-country-wrap" id="et-country-wrap">
+                        <span class="et-prefix" style="font-size:14px;">&#127758;</span>
+                        <input type="text" id="et-country-input" class="et-input et-country-input"
+                            placeholder="Search country..." autocomplete="off" spellcheck="false">
+                        <svg class="et-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </div>
+                    <div class="et-dropdown" id="et-dropdown"></div>
+                    <span class="et-error-msg" id="et-country-error">Select target geographic market</span>
+                </div>
+
+                <!-- Price Field -->
+                <div class="et-input-group">
+                    <label class="et-label" for="et-price">Target Product Price</label>
+                    <div class="et-input-wrap" id="et-price-wrap">
+                        <span class="et-prefix et-currency-symbol" id="et-currency-symbol">$</span>
+                        <input type="number" id="et-price" class="et-input" placeholder="297" min="0" step="1">
+                    </div>
+                    <span class="et-error-msg" id="et-price-error">Define extraction value (price)</span>
+                    <!-- AI Chips -->
+                    <div style="margin-top: 14px;">
+                        <p class="et-chips-label">&#9889; AI Suggestions</p>
+                        <div class="et-chips" id="et-chips">
+                            <button class="et-chip" data-tier="low">
+                                <span>Low Ticket <span class="chip-value" id="chip-low"></span></span>
+                            </button>
+                            <button class="et-chip" data-tier="core">
+                                <span>Core Offer <span class="chip-value" id="chip-core"></span></span>
+                            </button>
+                            <button class="et-chip" data-tier="high">
+                                <span>High Ticket <span class="chip-value" id="chip-high"></span></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CTA -->
+                <button class="et-start-btn" id="et-start-btn">
+                    &#9654;&nbsp;&nbsp;START EXTRACTION
+                </button>
+
+                <!-- Access Key (Security) -->
+                <div class="et-access-key-group">
+                    <label class="et-label" style="font-size: 9px;">OPERATIONAL ACCESS KEY (GEMINI_API_KEY)</label>
+                    <div class="et-input-wrap" style="margin-top: 5px;">
+                        <span class="et-prefix" style="font-size: 12px; line-height: 32px;">&#128274;</span>
+                        <input type="password" id="et-access-key" class="et-input et-access-input"
+                            placeholder="Enter key for AI analysis..." style="padding: 5px 12px; height: 32px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: TERMINAL -->
+            <div class="et-right">
+                <div class="et-terminal-bar">
+                    <div class="et-terminal-dot red"></div>
+                    <div class="et-terminal-dot amber"></div>
+                    <div class="et-terminal-dot green"></div>
+                    <span class="et-terminal-title">SHADOW_PROTOCOL — bash — 80x24</span>
+                </div>
+
+                <div class="et-terminal-body" id="et-terminal-body">
+                    <span class="et-terminal-line visible dim">> SHADOW PROTOCOL STANDBY...</span><br>
+                    <span class="et-terminal-line visible dim">> AWAITING INPUT PARAMETERS...</span><br>
+                    <span class="et-cursor" id="et-cursor"></span>
+                </div>
+
+                <div class="et-revenue-reveal" id="et-revenue-reveal">
+                    <p class="et-revenue-label">// TOTAL PROJECTED REVENUE</p>
+                    <div class="et-revenue-amount" id="et-revenue-amount">—</div>
+                    <p class="et-revenue-sub">AT 20% EXTRACTION FLOOR &bull; MONTHLY PROJECTION</p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- SITE FOOTER -->
+    <footer class="site-footer" id="site-footer">
+        <div class="footer-container">
+            <!-- About Section -->
+            <div class="footer-section">
+                <h3 class="footer-heading">ABOUT THE OPERATION</h3>
+                <p class="footer-about">
+                    A&M Operations is a backend architecture firm for elite creators. We specialize in Shadow
+                    Monetization—the engineering of high-yield revenue systems that run entirely in the background. We
+                    don’t focus on vanity metrics; we focus on the 20% extraction protocol. Our mission is to turn your
+                    audience into a predictable, engineered asset while you remain focused on the creative front-line.
+                </p>
+            </div>
+
+            <!-- Connect Section -->
+            <div class="footer-section">
+                <h3 class="footer-heading">COMMAND CENTER</h3>
+                <div class="footer-connect-row">
+                    <!-- Email Icon -->
+                    <a href="mailto:am.operations@outlook.com" class="footer-icon-link" aria-label="Email">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
+                        </svg>
+                    </a>
+                    <!-- Instagram Icon -->
+                    <a href="https://ig.me/m/am_operations" target="_blank" class="footer-icon-link"
+                        aria-label="Instagram">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2m-.2 2A3.6 3.6 0 0 0 4 7.6v8.8A3.6 3.6 0 0 0 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6A3.6 3.6 0 0 0 16.4 4H7.6m9.65 1.5a1.25 1.25 0 0 1 1.25 1.25A1.25 1.25 0 0 1 17.25 8 1.25 1.25 0 0 1 16 6.75a1.25 1.25 0 0 1 1.25-1.25M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p class="footer-copyright">© 2026 A&M OPERATIONS. ALL SYSTEMS ACTIVE.</p>
+        </div>
+    </footer>
+
+    <!-- Core Engine Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+    <script>
+        // 1. Three.js 3D Monolith Engine
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.002);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({
+            canvas: document.getElementById('three-canvas'),
+            antialias: true,
+            alpha: true
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        // Create the "A&M" Monolith - Accurate overlapping monogram
+        const shape = new THREE.Shape();
+
+        // Letter 'A' - left side
+        shape.moveTo(-3, -2);
+        shape.lineTo(-1.5, 2);
+        shape.lineTo(-0.5, 2);
+        shape.lineTo(0.5, -2);
+        shape.lineTo(-0.5, -2);
+        shape.lineTo(-1, 0);
+        shape.lineTo(-2, 0);
+        shape.lineTo(-3, -2);
+
+        // Ampersand '&' - Neon center
+        const ampShape = new THREE.Shape();
+        ampShape.absarc(0, 0.8, 1.2, 0, Math.PI * 2, false);
+        const ampHole = new THREE.Path();
+        ampHole.absarc(0, 0.8, 0.6, 0, Math.PI * 2, true);
+        ampShape.holes.push(ampHole);
+
+        const ampBottom = new THREE.Shape();
+        ampBottom.absarc(0.2, -0.6, 1, 0, Math.PI * 2, false);
+        const ampBottomHole = new THREE.Path();
+        ampBottomHole.absarc(0.2, -0.6, 0.5, 0, Math.PI * 2, true);
+        ampBottom.holes.push(ampBottomHole);
+
+        // Letter 'M' - right side
+        const mShape = new THREE.Shape();
+        mShape.moveTo(0, -2);
+        mShape.lineTo(0, 2);
+        mShape.lineTo(0.8, 2);
+        mShape.lineTo(1.5, 0);
+        mShape.lineTo(2.2, 2);
+        mShape.lineTo(3, 2);
+        mShape.lineTo(3, -2);
+        mShape.lineTo(2.2, -2);
+        mShape.lineTo(2.2, 1);
+        mShape.lineTo(1.5, -0.5);
+        mShape.lineTo(0.8, 1);
+        mShape.lineTo(0.8, -2);
+        mShape.lineTo(0, -2);
+
+        const extrudeSettings = {
+            depth: 0.8,
+            bevelEnabled: true,
+            bevelThickness: 0.15,
+            bevelSize: 0.1,
+            bevelSegments: 3
+        };
+
+        const geometryA = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        const geometryAmp1 = new THREE.ExtrudeGeometry(ampShape, extrudeSettings);
+        const geometryAmp2 = new THREE.ExtrudeGeometry(ampBottom, extrudeSettings);
+        const geometryM = new THREE.ExtrudeGeometry(mShape, extrudeSettings);
+
+
+        // Unified Silver Chrome Material
+        const chromeMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xE8E8E8,
+            metalness: 1,
+            roughness: 0.05,
+            emissive: 0x666666,
+            emissiveIntensity: 0.4,
+            wireframe: true,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.1
+        });
+
+        const letterA = new THREE.Mesh(geometryA, chromeMaterial);
+        const ampersand1 = new THREE.Mesh(geometryAmp1, chromeMaterial);
+        const ampersand2 = new THREE.Mesh(geometryAmp2, chromeMaterial);
+        const letterM = new THREE.Mesh(geometryM, chromeMaterial);
+
+        // Position letters
+        letterA.position.x = -2.5;
+        ampersand1.position.x = 0;
+        ampersand2.position.x = 0;
+        letterM.position.x = 2.5;
+
+        const monolith = new THREE.Group();
+        monolith.add(letterA);
+        monolith.add(ampersand1);
+        monolith.add(ampersand2);
+        monolith.add(letterM);
+        monolith.scale.set(2.0, 2.0, 2.0); // Much larger and more visible
+        scene.add(monolith);
+
+        // Lighting - Enhanced for silver chrome
+        const spotLight = new THREE.SpotLight(0xFFFFFF, 8);
+        spotLight.position.set(8, 8, 8);
+        scene.add(spotLight);
+
+        const spotLight2 = new THREE.SpotLight(0xFFFFFF, 6);
+        spotLight2.position.set(-8, 8, 8);
+        scene.add(spotLight2);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        camera.position.z = 10; // Adjusted for full view
+        camera.position.y = 0.5; // Slightly raised to center on screen
+
+        // 2. Smooth Scroll Engine (Lenis)
+        const lenis = new Lenis({
+            duration: 1.4,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smooth: true
+        });
+
+        // Anchor Link Scroll Protocol
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                lenis.scrollTo(targetId);
+            });
+        });
+
+        // Loop
+        function animate(time) {
+            lenis.raf(time);
+
+            // Kinetic Rotation - slower for better visibility
+            monolith.rotation.y += 0.003;
+            monolith.rotation.x = Math.sin(time / 5000) * 0.1; // Subtle tilt
+
+            // Gentle floating - reduced to stay centered
+            monolith.position.y = Math.sin(time / 3000) * 0.15;
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        requestAnimationFrame(animate);
+
+        // 3. Reveal Engine (CRITICAL - Makes content visible)
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        console.log("3D SHADOW ENGINE ONLINE");
+
+        // ============================================================
+        // EXTRACTION TERMINAL ENGINE
+        // ============================================================
+        (function () {
+
+            // --- Country Data ---
+            const COUNTRIES = [
+                { name: 'Afghanistan', code: 'AF', currency: 'AFN', symbol: '؋', low: 500, core: 2000, high: 8000 },
+                { name: 'Argentina', code: 'AR', currency: 'ARS', symbol: '$', low: 5000, core: 20000, high: 80000 },
+                { name: 'Australia', code: 'AU', currency: 'AUD', symbol: 'A$', low: 47, core: 197, high: 997 },
+                { name: 'Austria', code: 'AT', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'Bangladesh', code: 'BD', currency: 'BDT', symbol: '৳', low: 2000, core: 8000, high: 30000 },
+                { name: 'Belgium', code: 'BE', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'Brazil', code: 'BR', currency: 'BRL', symbol: 'R$', low: 97, core: 397, high: 1997 },
+                { name: 'Canada', code: 'CA', currency: 'CAD', symbol: 'C$', low: 37, core: 147, high: 747 },
+                { name: 'Chile', code: 'CL', currency: 'CLP', symbol: '$', low: 15000, core: 60000, high: 250000 },
+                { name: 'China', code: 'CN', currency: 'CNY', symbol: '¥', low: 97, core: 397, high: 1997 },
+                { name: 'Colombia', code: 'CO', currency: 'COP', symbol: '$', low: 50000, core: 200000, high: 800000 },
+                { name: 'Czech Republic', code: 'CZ', currency: 'CZK', symbol: 'Kč', low: 497, core: 1997, high: 9997 },
+                { name: 'Denmark', code: 'DK', currency: 'DKK', symbol: 'kr', low: 197, core: 697, high: 2997 },
+                { name: 'Egypt', code: 'EG', currency: 'EGP', symbol: 'E£', low: 500, core: 2000, high: 8000 },
+                { name: 'Finland', code: 'FI', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'France', code: 'FR', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'Germany', code: 'DE', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'Ghana', code: 'GH', currency: 'GHS', symbol: '₵', low: 200, core: 800, high: 3000 },
+                { name: 'Greece', code: 'GR', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'Hong Kong', code: 'HK', currency: 'HKD', symbol: 'HK$', low: 197, core: 797, high: 3997 },
+                { name: 'Hungary', code: 'HU', currency: 'HUF', symbol: 'Ft', low: 9000, core: 35000, high: 150000 },
+                { name: 'India', code: 'IN', currency: 'INR', symbol: '₹', low: 999, core: 4999, high: 19999 },
+                { name: 'Indonesia', code: 'ID', currency: 'IDR', symbol: 'Rp', low: 200000, core: 800000, high: 3000000 },
+                { name: 'Iran', code: 'IR', currency: 'IRR', symbol: '﷼', low: 500000, core: 2000000, high: 8000000 },
+                { name: 'Iraq', code: 'IQ', currency: 'IQD', symbol: 'ع.د', low: 20000, core: 80000, high: 300000 },
+                { name: 'Ireland', code: 'IE', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'Israel', code: 'IL', currency: 'ILS', symbol: '₪', low: 97, core: 397, high: 1997 },
+                { name: 'Italy', code: 'IT', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'Japan', code: 'JP', currency: 'JPY', symbol: '¥', low: 3000, core: 12000, high: 60000 },
+                { name: 'Jordan', code: 'JO', currency: 'JOD', symbol: 'JD', low: 17, core: 67, high: 347 },
+                { name: 'Kenya', code: 'KE', currency: 'KES', symbol: 'KSh', low: 2000, core: 8000, high: 30000 },
+                { name: 'Kuwait', code: 'KW', currency: 'KWD', symbol: 'KD', low: 7, core: 27, high: 147 },
+                { name: 'Malaysia', code: 'MY', currency: 'MYR', symbol: 'RM', low: 97, core: 397, high: 1997 },
+                { name: 'Mexico', code: 'MX', currency: 'MXN', symbol: '$', low: 497, core: 1997, high: 9997 },
+                { name: 'Morocco', code: 'MA', currency: 'MAD', symbol: 'د.م.', low: 200, core: 800, high: 3000 },
+                { name: 'Netherlands', code: 'NL', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'New Zealand', code: 'NZ', currency: 'NZD', symbol: 'NZ$', low: 47, core: 197, high: 997 },
+                { name: 'Nigeria', code: 'NG', currency: 'NGN', symbol: '₦', low: 10000, core: 40000, high: 150000 },
+                { name: 'Norway', code: 'NO', currency: 'NOK', symbol: 'kr', low: 247, core: 997, high: 4997 },
+                { name: 'Pakistan', code: 'PK', currency: 'PKR', symbol: '₨', low: 5000, core: 20000, high: 80000 },
+                { name: 'Peru', code: 'PE', currency: 'PEN', symbol: 'S/', low: 97, core: 397, high: 1997 },
+                { name: 'Philippines', code: 'PH', currency: 'PHP', symbol: '₱', low: 1000, core: 4000, high: 15000 },
+                { name: 'Poland', code: 'PL', currency: 'PLN', symbol: 'zł', low: 97, core: 397, high: 1997 },
+                { name: 'Portugal', code: 'PT', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'Qatar', code: 'QA', currency: 'QAR', symbol: 'QR', low: 97, core: 397, high: 1997 },
+                { name: 'Romania', code: 'RO', currency: 'RON', symbol: 'lei', low: 97, core: 397, high: 1997 },
+                { name: 'Russia', code: 'RU', currency: 'RUB', symbol: '₽', low: 1997, core: 7997, high: 39997 },
+                { name: 'Saudi Arabia', code: 'SA', currency: 'SAR', symbol: 'SR', low: 97, core: 397, high: 1997 },
+                { name: 'Singapore', code: 'SG', currency: 'SGD', symbol: 'S$', low: 37, core: 147, high: 747 },
+                { name: 'South Africa', code: 'ZA', currency: 'ZAR', symbol: 'R', low: 497, core: 1997, high: 9997 },
+                { name: 'South Korea', code: 'KR', currency: 'KRW', symbol: '₩', low: 30000, core: 120000, high: 600000 },
+                { name: 'Spain', code: 'ES', currency: 'EUR', symbol: '€', low: 27, core: 97, high: 497 },
+                { name: 'Sri Lanka', code: 'LK', currency: 'LKR', symbol: '₨', low: 5000, core: 20000, high: 80000 },
+                { name: 'Sweden', code: 'SE', currency: 'SEK', symbol: 'kr', low: 247, core: 997, high: 4997 },
+                { name: 'Switzerland', code: 'CH', currency: 'CHF', symbol: 'Fr', low: 27, core: 97, high: 497 },
+                { name: 'Taiwan', code: 'TW', currency: 'TWD', symbol: 'NT$', low: 797, core: 2997, high: 14997 },
+                { name: 'Tanzania', code: 'TZ', currency: 'TZS', symbol: 'TSh', low: 50000, core: 200000, high: 800000 },
+                { name: 'Thailand', code: 'TH', currency: 'THB', symbol: '฿', low: 697, core: 2997, high: 14997 },
+                { name: 'Turkey', code: 'TR', currency: 'TRY', symbol: '₺', low: 497, core: 1997, high: 9997 },
+                { name: 'Uganda', code: 'UG', currency: 'UGX', symbol: 'USh', low: 50000, core: 200000, high: 800000 },
+                { name: 'Ukraine', code: 'UA', currency: 'UAH', symbol: '₴', low: 997, core: 3997, high: 19997 },
+                { name: 'United Arab Emirates', code: 'AE', currency: 'AED', symbol: 'AED', low: 97, core: 397, high: 1997 },
+                { name: 'United Kingdom', code: 'GB', currency: 'GBP', symbol: '£', low: 17, core: 67, high: 347 },
+                { name: 'United States', code: 'US', currency: 'USD', symbol: '$', low: 27, core: 97, high: 497 },
+                { name: 'Uruguay', code: 'UY', currency: 'UYU', symbol: '$U', low: 997, core: 3997, high: 19997 },
+                { name: 'Venezuela', code: 'VE', currency: 'VES', symbol: 'Bs.S', low: 97, core: 397, high: 1997 },
+                { name: 'Vietnam', code: 'VN', currency: 'VND', symbol: '₫', low: 500000, core: 2000000, high: 8000000 },
+                { name: 'Zimbabwe', code: 'ZW', currency: 'ZWL', symbol: 'Z$', low: 5000, core: 20000, high: 80000 },
+            ];
+
+            // Sort alphabetically
+            COUNTRIES.sort((a, b) => a.name.localeCompare(b.name));
+
+            // --- State ---
+            let selectedCountry = COUNTRIES.find(c => c.code === 'US'); // default USA
+            let isRunning = false;
+
+            // --- DOM refs ---
+            const handleInput = document.getElementById('et-handle');
+            const countryInput = document.getElementById('et-country-input');
+            const dropdown = document.getElementById('et-dropdown');
+            const currencySymbol = document.getElementById('et-currency-symbol');
+            const priceInput = document.getElementById('et-price');
+            const chipLow = document.getElementById('chip-low');
+            const chipCore = document.getElementById('chip-core');
+            const chipHigh = document.getElementById('chip-high');
+            const startBtn = document.getElementById('et-start-btn');
+            const terminalBody = document.getElementById('et-terminal-body');
+            const cursor = document.getElementById('et-cursor');
+            const revenueReveal = document.getElementById('et-revenue-reveal');
+            const revenueAmount = document.getElementById('et-revenue-amount');
+
+            // --- Init chips ---
+            function updateChips() {
+                const sym = selectedCountry.symbol;
+                chipLow.textContent = sym + selectedCountry.low.toLocaleString();
+                chipCore.textContent = sym + selectedCountry.core.toLocaleString();
+                chipHigh.textContent = sym + selectedCountry.high.toLocaleString();
+                currencySymbol.textContent = sym;
+            }
+
+            // Initial selection (USA)
+            selectCountry(selectedCountry, false);
+
+            // --- Chip click ---
+            document.querySelectorAll('.et-chip').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tier = btn.dataset.tier;
+                    if (tier === 'low') priceInput.value = selectedCountry.low;
+                    if (tier === 'core') priceInput.value = selectedCountry.core;
+                    if (tier === 'high') priceInput.value = selectedCountry.high;
+                });
+            });
+
+            // --- Country Search Dropdown ---
+            function renderDropdown(query = '') {
+                const q = query.trim().toLowerCase();
+                const matches = q
+                    ? COUNTRIES.filter(c => c.name.toLowerCase().includes(q))
+                    : COUNTRIES;
+
+                dropdown.innerHTML = '';
+
+                if (matches.length === 0) {
+                    dropdown.innerHTML = '<div class="et-dropdown-empty">No countries found</div>';
+                } else {
+                    matches.slice(0, 15).forEach(country => {
+                        const item = document.createElement('div');
+                        item.className = 'et-dropdown-item';
+                        item.innerHTML = `
+                            <span>${country.name}</span>
+                            <span class="item-currency">${country.symbol} ${country.currency}</span>
+                        `;
+                        item.addEventListener('mousedown', (e) => {
+                            e.preventDefault();
+                            selectCountry(country);
+                        });
+                        dropdown.appendChild(item);
+                    });
+                }
+                dropdown.classList.add('open');
+            }
+
+            function selectCountry(country, printToTerminal = true) {
+                if (!country) return;
+                selectedCountry = country;
+                countryInput.value = country.name;
+                dropdown.classList.remove('open');
+                updateChips();
+
+                if (printToTerminal && terminalBody) {
+                    printLine(`> GEOGRAPHIC DATA ACQUIRED: ${country.name.toUpperCase()}. MATCHING REGIONAL CURRENCY...`, 'dim');
+                }
+
+                // Flash currency symbol
+                currencySymbol.style.transform = 'scale(1.3)';
+                currencySymbol.style.color = '#FFD700';
+                setTimeout(() => {
+                    currencySymbol.style.transform = 'scale(1)';
+                    currencySymbol.style.color = '#D4AF37';
+                }, 300);
+            }
+
+            // Initialization state
+            if (selectedCountry) {
+                selectCountry(selectedCountry, false);
+            }
+
+            countryInput.addEventListener('focus', () => {
+                if (!dropdown.classList.contains('open')) {
+                    renderDropdown(countryInput.value);
+                }
+            });
+
+            countryInput.addEventListener('input', () => renderDropdown(countryInput.value));
+
+            countryInput.addEventListener('blur', (e) => {
+                // Delay to allow item selection
+                setTimeout(() => {
+                    if (!document.activeElement.closest('#et-dropdown')) {
+                        dropdown.classList.remove('open');
+                    }
+                }, 200);
+            });
+
+            // Chevron toggle - refined to prevent flicker
+            const countryWrap = document.getElementById('et-country-wrap');
+            const chevron = countryWrap.querySelector('.et-chevron');
+
+            chevron.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Prevent focus flicker
+                if (dropdown.classList.contains('open')) {
+                    dropdown.classList.remove('open');
+                } else {
+                    countryInput.focus();
+                    renderDropdown('');
+                }
+            });
+
+            // Close dropdown on outside click
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#et-country-wrap') && !e.target.closest('#et-dropdown')) {
+                    dropdown.classList.remove('open');
+                }
+            });
+
+            // --- Validation Engine ---
+            function validateForm() {
+                let isValid = true;
+                const handle = handleInput.value.trim();
+                const country = countryInput.value.trim();
+                const price = priceInput.value.trim();
+
+                // Clear all previous errors first
+                document.querySelectorAll('.et-input-wrap').forEach(w => w.classList.remove('error'));
+                document.querySelectorAll('.et-error-msg').forEach(m => m.classList.remove('visible'));
+
+                if (!handle) {
+                    document.getElementById('et-handle-wrap').classList.add('error');
+                    document.getElementById('et-handle-error').classList.add('visible');
+                    isValid = false;
+                }
+
+                if (!country || !selectedCountry || country !== selectedCountry.name) {
+                    document.getElementById('et-country-wrap').classList.add('error');
+                    document.getElementById('et-country-error').classList.add('visible');
+                    isValid = false;
+                }
+
+                if (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
+                    document.getElementById('et-price-wrap').classList.add('error');
+                    document.getElementById('et-price-error').classList.add('visible');
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            // Clear error on input
+            [handleInput, countryInput, priceInput].forEach(input => {
+                input.addEventListener('input', () => {
+                    const wrap = input.closest('.et-input-wrap');
+                    const error = input.closest('.et-input-group').querySelector('.et-error-msg');
+                    if (wrap) wrap.classList.remove('error');
+                    if (error) error.classList.remove('visible');
+                });
+            });
+
+            // --- Terminal Animation ---
+            function clearTerminal() {
+                terminalBody.innerHTML = '';
+                terminalBody.appendChild(cursor);
+                revenueReveal.classList.remove('visible');
+                revenueAmount.textContent = '—';
+            }
+
+            function printLine(text, cssClass = '') {
+                const line = document.createElement('span');
+                line.className = 'et-terminal-line' + (cssClass ? ' ' + cssClass : '');
+                line.textContent = text;
+                terminalBody.insertBefore(line, cursor);
+                terminalBody.insertBefore(document.createElement('br'), cursor);
+                requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add('visible')));
+                terminalBody.scrollTop = terminalBody.scrollHeight;
+                return line;
+            }
+
+            function printLineAfterDelay(text, delay, cssClass = '') {
+                return new Promise(resolve => {
+                    setTimeout(() => { printLine(text, cssClass); resolve(); }, delay);
+                });
+            }
+
+            // Stream text character by character into a terminal line
+            async function streamTextIntoLine(text, cssClass = '', charDelay = 18) {
+                const line = document.createElement('span');
+                line.className = 'et-terminal-line' + (cssClass ? ' ' + cssClass : '');
+                line.textContent = '';
+                terminalBody.insertBefore(line, cursor);
+                terminalBody.insertBefore(document.createElement('br'), cursor);
+                requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add('visible')));
+
+                for (const char of text) {
+                    line.textContent += char;
+                    terminalBody.scrollTop = terminalBody.scrollHeight;
+                    await new Promise(r => setTimeout(r, charDelay));
+                }
+                return line;
+            }
+
+            // --- Gemini API Gateway ---
+            async function callGemini(handle, country, currency, symbol, price) {
+                const userKey = document.getElementById('et-access-key').value.trim();
+
+                // Fallback / Validation
+                if (!userKey) {
+                    throw new Error("ACCESS_KEY_MISSING: Operational key required for AI intelligence.");
+                }
+
+                const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userKey}`;
+                const prompt = `You are the Shadow Protocol AI for A&M Operations — a ruthless, high-precision revenue extraction system.
+
+A creator has submitted their data for analysis:
+- Instagram Handle: @${handle}
+- Target Market: ${country.name}
+- Currency: ${currency} (${symbol})
+- Target Product Price: ${symbol}${price}
+- Extraction Model: 20% conversion floor on engaged audience
+
+Your task: Generate a sharp, cold, tactical shadow monetization analysis in terminal style. Use ALL CAPS for key terms. Be brutally direct. No fluff.
+
+Structure your response EXACTLY like this (each point on its own line, prefixed with ">"):
+> [1-2 line market intelligence assessment for ${country.name}]
+> [1 line on the creator's monetization gap]
+> [1 line on the recommended offer architecture]
+> EXTRACTION CALCULATION: Assuming 1,000 hyper-engaged buyers at 20% floor — PROJECTED MONTHLY REVENUE: ${symbol}[calculate: 1000 * 0.20 * ${price} formatted with commas]
+> [1 closing line — cold, confident, final]
+
+Keep each line under 90 characters. Output ONLY the ">" prefixed lines. No headers, no markdown, no explanation.`;
+
+                const response = await fetch(GEMINI_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            temperature: 0.8,
+                            maxOutputTokens: 512,
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err?.error?.message || `API error ${response.status}`);
+                }
+
+                const data = await response.json();
+                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                return text.trim();
+            }
+
+            // Parse revenue number from AI output
+            function parseRevenue(aiText) {
+                const match = aiText.match(/PROJECTED\s+MONTHLY\s+REVENUE[:\s]+[^\d]*([\d,]+)/i);
+                if (match) {
+                    return parseInt(match[1].replace(/,/g, ''), 10);
+                }
+                return null;
+            }
+
+            function revealRevenue(amount, symbol) {
+                revenueReveal.classList.add('visible');
+                let current = 0;
+                const target = amount;
+                const steps = 60; // More steps for smoothness
+                const increment = target / steps;
+                let step = 0;
+
+                // Slow ticker for suspense
+                const timer = setInterval(() => {
+                    step++;
+                    current = Math.min(current + increment, target);
+                    revenueAmount.textContent = symbol + Math.floor(current).toLocaleString();
+
+                    if (step >= steps) {
+                        clearInterval(timer);
+                        revenueAmount.textContent = symbol + target.toLocaleString();
+                    }
+                }, 45); // Slower interval
+            }
+
+            async function runExtractionSequence(handle, country, currency, price) {
+                clearTerminal();
+                const symbol = country.symbol;
+
+                // Phase 1: Expanded Tactical Sequence
+                const preLines = [
+                    { text: '> INITIALIZING SHADOW PROTOCOL...', delay: 150, cls: '' },
+                    { text: '> ESTABLISHING ENCRYPTED TUNNEL...', delay: 500, cls: 'dim' },
+                    { text: `> ACCESSING INSTAGRAM API FOR @${handle}...`, delay: 900, cls: '' },
+                    { text: '> SCANNING FOLLOWER ENGAGEMENT MATRIX...', delay: 1400, cls: 'dim' },
+                    { text: '> HARVESTING RETENTION SIGNALS...', delay: 1900, cls: 'dim' },
+                    { text: '> SCRAPING HIDDEN MARKET METADATA...', delay: 2300, cls: 'dim' },
+                    { text: `> LOCATING GEOGRAPHIC MARKET: ${country.name.toUpperCase()}...`, delay: 2800, cls: '' },
+                    { text: `> MATCHING REGIONAL CURRENCY: ${currency} (${symbol})...`, delay: 3300, cls: '' },
+                    { text: '> CALCULATING 20% EXTRACTION FLOOR...', delay: 3800, cls: '' },
+                    { text: '> CROSS-REFERENCING SHADOW DATABASE...', delay: 4200, cls: 'dim' },
+                    { text: '> QUERYING SHADOW INTELLIGENCE ENGINE...', delay: 4700, cls: 'gold' },
+                ];
+
+                // Fire pre-lines and Gemini call in parallel
+                const [, aiText] = await Promise.all([
+                    Promise.all(preLines.map(l => printLineAfterDelay(l.text, l.delay, l.cls))),
+                    callGemini(handle, country, currency, symbol, price).catch(err => {
+                        return `> ERROR: ${err.message}\n> FALLING BACK TO LOCAL CALCULATION...\n> PROJECTED MONTHLY REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
+                    })
+                ]);
+
+                // Clear a bit of suspense
+                await new Promise(r => setTimeout(r, 300));
+                await printLineAfterDelay('> DECRYPTING AI CORE ANALYSIS...', 100, 'dim');
+                await new Promise(r => setTimeout(r, 600));
+
+                const aiLines = aiText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+                for (const aiLine of aiLines) {
+                    // Detect the revenue line — print it gold
+                    const isRevenueLine = /PROJECTED.*REVENUE/i.test(aiLine);
+                    await streamTextIntoLine(aiLine, isRevenueLine ? 'gold' : '', isRevenueLine ? 12 : 20);
+                    await new Promise(r => setTimeout(r, 180));
+                }
+
+                // Phase 3: Final Calibration & Reveal
+                await new Promise(r => setTimeout(r, 400));
+                await streamTextIntoLine('> RUNNING FINAL CALIBRATION...', 'dim', 30);
+                await new Promise(r => setTimeout(r, 1200)); // Suspenseful pause
+
+                const revenue = parseRevenue(aiText) ?? Math.floor(price * 0.20 * 1000);
+                revealRevenue(revenue, symbol);
+            }
+
+            // --- START Button ---
+            startBtn.addEventListener('click', () => {
+                if (isRunning) return;
+
+                // DATA VALIDATION
+                if (!validateForm()) return;
+
+                const handle = handleInput.value.trim();
+                const price = parseFloat(priceInput.value);
+                const country = selectedCountry;
+                const currency = country.currency;
+
+                isRunning = true;
+                startBtn.innerHTML = '&#9203;&nbsp;&nbsp;RUNNING...';
+                startBtn.style.opacity = '0.7';
+                startBtn.style.cursor = 'not-allowed';
+
+                runExtractionSequence(handle, country, currency, price).then(() => {
+                    isRunning = false;
+                    startBtn.innerHTML = '&#9654;&nbsp;&nbsp;RUN AGAIN';
+                    startBtn.style.opacity = '1';
+                    startBtn.style.cursor = 'pointer';
+                }).catch(err => {
+                    printLine(`> CRITICAL ERROR: ${err.message}`, 'gold');
+                    isRunning = false;
+                    startBtn.innerHTML = '&#9654;&nbsp;&nbsp;RETRY';
+                    startBtn.style.opacity = '1';
+                    startBtn.style.cursor = 'pointer';
+                });
+            });
+
+        })(); // end IIFE
+
+
+    </script>
+</body>
+
+</html>
