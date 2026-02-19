@@ -1320,21 +1320,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
     <script>
-        // --- Elite Engine: Refractive Glass & Chrome Gear System ---
+        // --- Holographic Engine: Schematic Gear System ---
         let backgroundScene, backgroundCamera, backgroundRenderer;
-        let gearGroup;
+        let gearGroup, schematicGroup;
         let gearLarge, gearMedium, gearSmall;
-        let mouseLight;
+        const HOLOGRAPHIC_BLUE = 0x00e5ff;
         const baseSpeed = 0.005;
 
-        // Normalized mouse coordinates
-        let targetMouseX = 0, targetMouseY = 0;
-        let currentMouseX = 0, currentMouseY = 0;
-
         /**
-         * Mathematical Involute Profile Generator
+         * Enhanced Involute Profile with Spokes and Hub
          */
-        function createInvoluteGearShape(teeth, module, pressureAngleDegrees = 20) {
+        function createSchematicGearShape(teeth, module, pressureAngleDegrees = 20) {
             const shape = new THREE.Shape();
             const pressureAngle = pressureAngleDegrees * (Math.PI / 180);
             const pitchRadius = (module * teeth) / 2;
@@ -1348,7 +1344,7 @@
             for (let i = 0; i < teeth; i++) {
                 const centerAngle = i * totalAngle;
                 const points = [];
-                const steps = 10;
+                const steps = 8;
                 const startR = Math.max(baseRadius, rootRadius);
 
                 for (let j = 0; j <= steps; j++) {
@@ -1369,8 +1365,8 @@
 
                 const aTopLeft = centerAngle - toothWidthAngle + points[steps].a;
                 const aTopRight = centerAngle + toothWidthAngle - points[steps].a;
-                for (let k = 0; k <= 5; k++) {
-                    const a = aTopLeft + (aTopRight - aTopLeft) * (k / 5);
+                for (let k = 0; k <= 3; k++) {
+                    const a = aTopLeft + (aTopRight - aTopLeft) * (k / 3);
                     shape.lineTo(Math.cos(a) * outerRadius, Math.sin(a) * outerRadius);
                 }
 
@@ -1383,6 +1379,29 @@
                 const aEnd = centerAngle + totalAngle - toothWidthAngle;
                 shape.lineTo(Math.cos(aEnd) * rootRadius, Math.sin(aEnd) * rootRadius);
             }
+
+            // --- Add Holes (Spokes) ---
+            const rimThickness = module * 2;
+            const hubRadius = module * 3;
+            const innerRadius = rootRadius - rimThickness;
+            const spokeCount = Math.max(4, Math.floor(teeth / 4));
+
+            for (let i = 0; i < spokeCount; i++) {
+                const angleStart = (i / spokeCount) * Math.PI * 2 + 0.1;
+                const angleEnd = ((i + 1) / spokeCount) * Math.PI * 2 - 0.1;
+
+                const holePath = new THREE.Path();
+                holePath.absarc(0, 0, innerRadius, angleStart, angleEnd, false);
+                holePath.absarc(0, 0, hubRadius, angleEnd, angleStart, true);
+                holePath.closePath();
+                shape.holes.push(holePath);
+            }
+
+            // Central Hub Hole
+            const centerHole = new THREE.Path();
+            centerHole.absarc(0, 0, module * 1.5, 0, Math.PI * 2, true);
+            shape.holes.push(centerHole);
+
             return shape;
         }
 
@@ -1400,94 +1419,83 @@
             backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
             backgroundRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-            // Multi-Material: [0] = Faces (Glass), [1] = Edges (Chrome)
-            const glassMaterial = new THREE.MeshPhysicalMaterial({
-                transmission: 0.95,
-                thickness: 0.5,
-                roughness: 0.1,
-                metalness: 0,
+            const holoMaterial = new THREE.MeshBasicMaterial({
+                color: HOLOGRAPHIC_BLUE,
                 transparent: true,
-                opacity: 0.8,
-                envMapIntensity: 1.5,
-                color: 0xffffff
+                opacity: 0.15,
+                side: THREE.DoubleSide
             });
 
-            const chromeMaterial = new THREE.MeshStandardMaterial({
-                color: 0xFFFFFF,
-                metalness: 1.0,
-                roughness: 0.05
+            const wireMaterial = new THREE.MeshBasicMaterial({
+                color: HOLOGRAPHIC_BLUE,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.6
             });
-
-            const materials = [glassMaterial, chromeMaterial];
-
-            const extrudeSettings = {
-                depth: 1.5,
-                bevelEnabled: true,
-                bevelThickness: 0.05,
-                bevelSize: 0.05,
-                bevelSegments: 2
-            };
 
             gearGroup = new THREE.Group();
+            schematicGroup = new THREE.Group();
+
+            const module = 0.35;
+            const extrudeSettings = { depth: 0.5, bevelEnabled: false };
+
+            function createHoloGear(teeth) {
+                const shape = createSchematicGearShape(teeth, module);
+                const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                geometry.center();
+
+                const mesh = new THREE.Mesh(geometry, holoMaterial);
+                const wire = new THREE.Mesh(geometry, wireMaterial);
+                mesh.add(wire);
+                return mesh;
+            }
 
             // Gear Master: 40 teeth
-            const module = 0.3;
-            const shapeLarge = createInvoluteGearShape(40, module);
-            const geoLarge = new THREE.ExtrudeGeometry(shapeLarge, extrudeSettings);
-            geoLarge.center();
-            gearLarge = new THREE.Mesh(geoLarge, materials);
+            gearLarge = createHoloGear(40);
             gearGroup.add(gearLarge);
 
             // Gear Slave: 20 teeth
-            const shapeMedium = createInvoluteGearShape(20, module);
-            const geoMedium = new THREE.ExtrudeGeometry(shapeMedium, extrudeSettings);
-            geoMedium.center();
-            gearMedium = new THREE.Mesh(geoMedium, materials);
-
+            gearMedium = createHoloGear(20);
             const dist12 = (40 + 20) * module / 2;
-            const angle12 = Math.PI / 4.5;
+            const angle12 = Math.PI / 6;
             gearMedium.position.set(Math.cos(angle12) * dist12, Math.sin(angle12) * dist12, 0);
             gearMedium.rotation.z = Math.PI / 20;
             gearGroup.add(gearMedium);
 
-            // High-Speed Link: 10 teeth
-            const shapeSmall = createInvoluteGearShape(10, module);
-            const geoSmall = new THREE.ExtrudeGeometry(shapeSmall, extrudeSettings);
-            geoSmall.center();
-            gearSmall = new THREE.Mesh(geoSmall, materials);
-
-            const dist23 = (20 + 10) * module / 2;
-            const angle23 = -Math.PI / 1.5;
+            // High-Speed Link: 12 teeth
+            gearSmall = createHoloGear(12);
+            const dist23 = (20 + 12) * module / 2;
+            const angle23 = -Math.PI / 2.5;
             gearSmall.position.set(
                 gearMedium.position.x + Math.cos(angle23) * dist23,
                 gearMedium.position.y + Math.sin(angle23) * dist23,
                 0
             );
-            gearSmall.rotation.z = Math.PI / 10;
+            gearSmall.rotation.z = Math.PI / 12;
             gearGroup.add(gearSmall);
 
-            gearGroup.position.set(0, 0, 0);
             backgroundScene.add(gearGroup);
 
-            // High-Intensity Lighting Protocol
-            const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 3);
-            directionalLight.position.set(5, 10, 10);
-            backgroundScene.add(directionalLight);
+            // --- Schematic Background Elements ---
+            const gridCircles_1 = new THREE.RingGeometry(18, 18.05, 64);
+            const gridCircles_2 = new THREE.RingGeometry(12, 12.02, 64);
+            const schematicMat = new THREE.MeshBasicMaterial({ color: HOLOGRAPHIC_BLUE, transparent: true, opacity: 0.1 });
 
-            mouseLight = new THREE.PointLight(0xFFFFFF, 4, 100);
-            mouseLight.position.set(0, 0, 15);
-            backgroundScene.add(mouseLight);
+            schematicGroup.add(new THREE.Mesh(gridCircles_1, schematicMat));
+            schematicGroup.add(new THREE.Mesh(gridCircles_2, schematicMat));
 
-            const hemiLight = new THREE.HemisphereLight(0x404040, 0x000000, 1);
-            backgroundScene.add(hemiLight);
+            // Crosshairs
+            const lineMat = new THREE.LineBasicMaterial({ color: HOLOGRAPHIC_BLUE, transparent: true, opacity: 0.2 });
+            const pts = [new THREE.Vector3(-25, 0, 0), new THREE.Vector3(25, 0, 0)];
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+            const lineV = new THREE.Line(lineGeo, lineMat);
+            const lineH = new THREE.Line(lineGeo, lineMat);
+            lineH.rotation.z = Math.PI / 2;
+            schematicGroup.add(lineV, lineH);
+
+            backgroundScene.add(schematicGroup);
 
             resizeHandler();
-
-            // Mouse Tracker
-            window.addEventListener('mousemove', (e) => {
-                targetMouseX = (e.clientX / window.innerWidth - 0.5) * 40;
-                targetMouseY = -(e.clientY / window.innerHeight - 0.5) * 40;
-            });
         }
 
         // 2. Smooth Scroll Engine (Lenis)
@@ -1508,18 +1516,14 @@
         function animate(time) {
             lenis.raf(time);
 
-            // Smooth Light Tracking
-            currentMouseX += (targetMouseX - currentMouseX) * 0.1;
-            currentMouseY += (targetMouseY - currentMouseY) * 0.1;
-            if (mouseLight) {
-                mouseLight.position.x = currentMouseX;
-                mouseLight.position.y = currentMouseY;
-            }
-
             if (gearLarge && gearMedium && gearSmall) {
                 gearLarge.rotation.z -= baseSpeed;
                 gearMedium.rotation.z = -gearLarge.rotation.z * (40 / 20) + (Math.PI / 20);
-                gearSmall.rotation.z = -gearMedium.rotation.z * (20 / 10) + (Math.PI / 10);
+                gearSmall.rotation.z = -gearMedium.rotation.z * (20 / 12) + (Math.PI / 12);
+            }
+
+            if (schematicGroup) {
+                schematicGroup.rotation.z += 0.0002;
             }
 
             backgroundRenderer.render(backgroundScene, backgroundCamera);
@@ -1533,10 +1537,12 @@
             backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
 
             if (window.innerWidth < 768) {
-                gearGroup.scale.set(0.65, 0.65, 0.65);
+                gearGroup.scale.set(0.6, 0.6, 0.6);
+                schematicGroup.scale.set(0.6, 0.6, 0.6);
                 backgroundCamera.position.z = 35;
             } else {
-                gearGroup.scale.set(1.1, 1.1, 1.1);
+                gearGroup.scale.set(1, 1, 1);
+                schematicGroup.scale.set(1, 1, 1);
                 backgroundCamera.position.z = 30;
             }
         }
