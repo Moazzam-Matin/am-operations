@@ -1765,48 +1765,55 @@
                 clearTerminal();
                 const symbol = country.symbol;
 
-                // Phase 1: Expanded Tactical Sequence
-                const preLines = [
-                    { text: '> INITIALIZING SHADOW PROTOCOL...', delay: 150, cls: '' },
-                    { text: '> ESTABLISHING ENCRYPTED TUNNEL...', delay: 500, cls: 'dim' },
-                    { text: `> ACCESSING INSTAGRAM API FOR @${handle}...`, delay: 900, cls: '' },
-                    { text: '> SCANNING FOLLOWER ENGAGEMENT MATRIX...', delay: 1400, cls: 'dim' },
-                    { text: '> HARVESTING RETENTION SIGNALS...', delay: 1900, cls: 'dim' },
-                    { text: '> SCRAPING HIDDEN MARKET METADATA...', delay: 2300, cls: 'dim' },
-                    { text: `> LOCATING GEOGRAPHIC MARKET: ${country.name.toUpperCase()}...`, delay: 2800, cls: '' },
-                    { text: `> MATCHING REGIONAL CURRENCY: ${currency} (${symbol})...`, delay: 3300, cls: '' },
-                    { text: '> CALCULATING 20% EXTRACTION FLOOR...', delay: 3800, cls: '' },
-                    { text: '> CROSS-REFERENCING SHADOW DATABASE...', delay: 4200, cls: 'dim' },
-                    { text: '> QUERYING SHADOW INTELLIGENCE ENGINE...', delay: 4700, cls: 'gold' },
+                // Phase 1: Sequential Tactical Sequence with HARD DELAYS
+                const tacticalLines = [
+                    { text: '> INITIALIZING SHADOW PROTOCOL...', cls: '' },
+                    { text: '> ESTABLISHING ENCRYPTED TUNNEL...', cls: 'dim' },
+                    { text: `> ACCESSING INSTAGRAM API FOR @${handle}...`, cls: '' },
+                    { text: '> SCANNING FOLLOWER ENGAGEMENT MATRIX...', cls: 'dim' },
+                    { text: '> HARVESTING RETENTION SIGNALS...', cls: 'dim' },
+                    { text: '> SCRAPING HIDDEN MARKET METADATA...', cls: 'dim' },
+                    { text: `> LOCATING GEOGRAPHIC MARKET: ${country.name.toUpperCase()}...`, cls: '' },
+                    { text: `> MATCHING REGIONAL CURRENCY: ${currency} (${symbol})...`, cls: '' },
+                    { text: '> CALCULATING 20% EXTRACTION FLOOR...', cls: '' },
+                    { text: '> CROSS-REFERENCING SHADOW DATABASE...', cls: 'dim' },
+                    { text: '> QUERYING SHADOW INTELLIGENCE ENGINE...', cls: 'gold' },
                 ];
 
-                // Fire pre-lines and Gemini call in parallel
-                const [, aiText] = await Promise.all([
-                    Promise.all(preLines.map(l => printLineAfterDelay(l.text, l.delay, l.cls))),
-                    callGemini(handle, country, currency, symbol, price).catch(err => {
-                        if (err.status === 429 || /quota/i.test(err.message) || /RATE_LIMIT/i.test(err.message)) throw err;
-                        return `> API_ERROR: ${err.message}\n> FALLING BACK TO LOCAL CALCULATION PROTOCOL...\n> PROJECTED MONTHLY REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
-                    })
-                ]);
+                for (const lineObj of tacticalLines) {
+                    await printLineAfterDelay(lineObj.text, 0, lineObj.cls);
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Hard Wait Protocol
+                }
 
-                // Clear a bit of suspense
-                await new Promise(r => setTimeout(r, 300));
+                // Phase 2: Secure AI Extraction
+                let aiText = '';
+                try {
+                    aiText = await callGemini(handle, country, currency, symbol, price);
+                } catch (err) {
+                    const isQuotaError = err.status === 429 || /quota/i.test(err.message) || /RATE_LIMIT/i.test(err.message);
+                    if (isQuotaError) {
+                        await printLineAfterDelay('> [SYSTEM LOCKOUT]: GOOGLE QUOTA EXCEEDED. RETRY IN 60S.', 500, 'gold');
+                        throw err; // Propagate to button listener for cooldown
+                    }
+                    // Fallback for other errors
+                    aiText = `> API_ERROR: ${err.message}\n> FALLING BACK TO LOCAL CALCULATION PROTOCOL...\n> PROJECTED MONTHLY REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
+                }
+
                 await printLineAfterDelay('> DECRYPTING AI CORE ANALYSIS...', 100, 'dim');
                 await new Promise(r => setTimeout(r, 600));
 
                 const aiLines = aiText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
                 for (const aiLine of aiLines) {
-                    // Detect the revenue line — print it gold
                     const isRevenueLine = /PROJECTED.*REVENUE/i.test(aiLine);
                     await streamTextIntoLine(aiLine, isRevenueLine ? 'gold' : '', isRevenueLine ? 12 : 20);
-                    await new Promise(r => setTimeout(r, 180));
+                    await new Promise(r => setTimeout(r, 200));
                 }
 
-                // Phase 3: Final Calibration & Reveal
+                // Phase 3: Final Reveal
                 await new Promise(r => setTimeout(r, 400));
                 await streamTextIntoLine('> RUNNING FINAL CALIBRATION...', 'dim', 30);
-                await new Promise(r => setTimeout(r, 1200)); // Suspenseful pause
+                await new Promise(r => setTimeout(r, 1200));
 
                 const revenue = parseRevenue(aiText) ?? Math.floor(price * 0.20 * 1000);
                 revealRevenue(revenue, symbol);
