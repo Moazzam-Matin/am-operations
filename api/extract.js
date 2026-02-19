@@ -1,7 +1,13 @@
 /**
  * SHADOW_PROTOCOL API GATEWAY
  * Securely proxies requests to Gemini AI using environment variables.
+ * Includes basic in-memory rate limiting (5 RPM).
  */
+
+const RATE_LIMIT_MAP = new Map();
+const LIMIT_WINDOW = 60 * 1000; // 1 minute
+const MAX_REQUESTS = 5;
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
@@ -9,6 +15,27 @@ export default async function handler(req, res) {
 
     const { handle, country, currency, symbol, price } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
+
+    // --- Basic In-Memory Rate Limiting (Per-Instance) ---
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'global';
+    const now = Date.now();
+    const userData = RATE_LIMIT_MAP.get(ip) || { count: 0, resetAt: now + LIMIT_WINDOW };
+
+    if (now > userData.resetAt) {
+        userData.count = 0;
+        userData.resetAt = now + LIMIT_WINDOW;
+    }
+
+    if (userData.count >= MAX_REQUESTS) {
+        const waitTime = Math.ceil((userData.resetAt - now) / 1000);
+        return res.status(429).json({
+            error: `RATE_LIMIT_EXCEEDED: Shadow Intelligence Engine overloaded. Reset in ${waitTime}s.`
+        });
+    }
+
+    userData.count++;
+    RATE_LIMIT_MAP.set(ip, userData);
+    // ---------------------------------------------------
 
     if (!apiKey) {
         return res.status(500).json({ error: 'GEMINI_API_KEY not configured on server.' });

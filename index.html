@@ -1721,7 +1721,10 @@
 
                 if (!response.ok) {
                     const err = await response.json();
-                    throw new Error(err.error || `API Error: ${response.status}`);
+                    const errMsg = err.error || `API Error: ${response.status}`;
+                    const error = new Error(errMsg);
+                    error.status = response.status;
+                    throw error;
                 }
 
                 const data = await response.json();
@@ -1827,16 +1830,40 @@
 
                 runExtractionSequence(handle, country, currency, price).then(() => {
                     isRunning = false;
-                    startBtn.innerHTML = '&#9654;&nbsp;&nbsp;RUN AGAIN';
-                    startBtn.style.opacity = '1';
-                    startBtn.style.cursor = 'pointer';
+                    startCooldown(60);
                 }).catch(err => {
-                    printLine(`> CRITICAL ERROR: ${err.message}`, 'gold');
+                    const isRateLimit = err.status === 429 || /RATE_LIMIT_EXCEEDED/i.test(err.message);
+                    printLine(isRateLimit ? `> ${err.message}` : `> CRITICAL ERROR: ${err.message}`, 'gold');
                     isRunning = false;
-                    startBtn.innerHTML = '&#9654;&nbsp;&nbsp;RETRY';
-                    startBtn.style.opacity = '1';
-                    startBtn.style.cursor = 'pointer';
+
+                    if (isRateLimit) {
+                        // Extract seconds from message if possible, or default to 30
+                        const match = err.message.match(/(\d+)s/);
+                        const sec = match ? parseInt(match[1]) : 30;
+                        startCooldown(sec);
+                    } else {
+                        startBtn.innerHTML = '&#9654;&nbsp;&nbsp;RETRY';
+                        startBtn.style.opacity = '1';
+                        startBtn.style.cursor = 'pointer';
+                    }
                 });
+
+                function startCooldown(seconds) {
+                    let remaining = seconds;
+                    startBtn.style.opacity = '0.5';
+                    startBtn.style.cursor = 'not-allowed';
+
+                    const interval = setInterval(() => {
+                        startBtn.innerHTML = `&#9203;&nbsp;&nbsp;COOLDOWN (${remaining}s)`;
+                        remaining--;
+                        if (remaining < 0) {
+                            clearInterval(interval);
+                            startBtn.innerHTML = '&#9654;&nbsp;&nbsp;RUN AGAIN';
+                            startBtn.style.opacity = '1';
+                            startBtn.style.cursor = 'pointer';
+                        }
+                    }, 1000);
+                }
             });
 
         })(); // end IIFE
