@@ -1320,15 +1320,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
     <script>
-        // --- Industrial Engine: Involute Gear System ---
+        // --- Elite Engine: Refractive Glass & Chrome Gear System ---
         let backgroundScene, backgroundCamera, backgroundRenderer;
         let gearGroup;
         let gearLarge, gearMedium, gearSmall;
-        const GHOST_GOLD = 0xFFD700;
+        let mouseLight;
         const baseSpeed = 0.005;
 
+        // Normalized mouse coordinates
+        let targetMouseX = 0, targetMouseY = 0;
+        let currentMouseX = 0, currentMouseY = 0;
+
         /**
-         * Generates a mathematically accurate Involute Gear profile
+         * Mathematical Involute Profile Generator
          */
         function createInvoluteGearShape(teeth, module, pressureAngleDegrees = 20) {
             const shape = new THREE.Shape();
@@ -1339,15 +1343,12 @@
             const rootRadius = pitchRadius - 1.25 * module;
 
             const totalAngle = (Math.PI * 2) / teeth;
-            const toothWidthAngle = totalAngle / 4; // Approx width at pitch circle
+            const toothWidthAngle = totalAngle / 4;
 
             for (let i = 0; i < teeth; i++) {
                 const centerAngle = i * totalAngle;
-
-                // Involute calculation points
                 const points = [];
                 const steps = 10;
-                // Start from base circle or root (whichever is smaller)
                 const startR = Math.max(baseRadius, rootRadius);
 
                 for (let j = 0; j <= steps; j++) {
@@ -1356,36 +1357,29 @@
                     points.push({ r, a: angleAtR });
                 }
 
-                // --- Draw One Tooth ---
-                // 1. Move to root
                 const r0 = rootRadius;
                 const a0 = centerAngle - toothWidthAngle;
                 if (i === 0) shape.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0);
                 else shape.lineTo(Math.cos(a0) * r0, Math.sin(a0) * r0);
 
-                // 2. Left Flank (Involute)
                 points.forEach(p => {
                     const a = centerAngle - toothWidthAngle + p.a;
                     shape.lineTo(Math.cos(a) * p.r, Math.sin(a) * p.r);
                 });
 
-                // 3. Top Land
                 const aTopLeft = centerAngle - toothWidthAngle + points[steps].a;
                 const aTopRight = centerAngle + toothWidthAngle - points[steps].a;
-                // arc for top land
                 for (let k = 0; k <= 5; k++) {
                     const a = aTopLeft + (aTopRight - aTopLeft) * (k / 5);
                     shape.lineTo(Math.cos(a) * outerRadius, Math.sin(a) * outerRadius);
                 }
 
-                // 4. Right Flank (Mirror Involute)
                 for (let j = steps; j >= 0; j--) {
                     const p = points[j];
                     const a = centerAngle + toothWidthAngle - p.a;
                     shape.lineTo(Math.cos(a) * p.r, Math.sin(a) * p.r);
                 }
 
-                // 5. Bottom Land
                 const aEnd = centerAngle + totalAngle - toothWidthAngle;
                 shape.lineTo(Math.cos(aEnd) * rootRadius, Math.sin(aEnd) * rootRadius);
             }
@@ -1395,8 +1389,8 @@
         function initBackground() {
             backgroundScene = new THREE.Scene();
 
-            backgroundCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            backgroundCamera.position.set(0, 0, 25);
+            backgroundCamera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
+            backgroundCamera.position.set(0, 0, 30);
 
             backgroundRenderer = new THREE.WebGLRenderer({
                 canvas: document.getElementById('three-canvas'),
@@ -1406,48 +1400,64 @@
             backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
             backgroundRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-            const material = new THREE.MeshStandardMaterial({
-                color: GHOST_GOLD,
-                metalness: 0.9,
-                roughness: 0.2
+            // Multi-Material: [0] = Faces (Glass), [1] = Edges (Chrome)
+            const glassMaterial = new THREE.MeshPhysicalMaterial({
+                transmission: 0.95,
+                thickness: 0.5,
+                roughness: 0.1,
+                metalness: 0,
+                transparent: true,
+                opacity: 0.8,
+                envMapIntensity: 1.5,
+                color: 0xffffff
             });
 
-            const extrudeSettings = { depth: 2, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1 };
+            const chromeMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                metalness: 1.0,
+                roughness: 0.05
+            });
+
+            const materials = [glassMaterial, chromeMaterial];
+
+            const extrudeSettings = {
+                depth: 1.5,
+                bevelEnabled: true,
+                bevelThickness: 0.05,
+                bevelSize: 0.05,
+                bevelSegments: 2
+            };
 
             gearGroup = new THREE.Group();
 
-            // Gear 1: Large Master (40 teeth)
-            const module = 0.25;
+            // Gear Master: 40 teeth
+            const module = 0.3;
             const shapeLarge = createInvoluteGearShape(40, module);
             const geoLarge = new THREE.ExtrudeGeometry(shapeLarge, extrudeSettings);
             geoLarge.center();
-            gearLarge = new THREE.Mesh(geoLarge, material);
+            gearLarge = new THREE.Mesh(geoLarge, materials);
             gearGroup.add(gearLarge);
 
-            // Gear 2: Medium Slave (20 teeth)
+            // Gear Slave: 20 teeth
             const shapeMedium = createInvoluteGearShape(20, module);
             const geoMedium = new THREE.ExtrudeGeometry(shapeMedium, extrudeSettings);
             geoMedium.center();
-            gearMedium = new THREE.Mesh(geoMedium, material);
+            gearMedium = new THREE.Mesh(geoMedium, materials);
 
-            // Distance: (N1 + N2) * module / 2 = (40 + 20) * 0.25 / 2 = 7.5
             const dist12 = (40 + 20) * module / 2;
-            const angle12 = Math.PI / 6; // 2 o'clock
+            const angle12 = Math.PI / 4.5;
             gearMedium.position.set(Math.cos(angle12) * dist12, Math.sin(angle12) * dist12, 0);
-            // Counter-rotation and tooth alignment: half tooth offset
             gearMedium.rotation.z = Math.PI / 20;
             gearGroup.add(gearMedium);
 
-            // Gear 3: Small High-Speed (10 teeth)
+            // High-Speed Link: 10 teeth
             const shapeSmall = createInvoluteGearShape(10, module);
             const geoSmall = new THREE.ExtrudeGeometry(shapeSmall, extrudeSettings);
             geoSmall.center();
-            gearSmall = new THREE.Mesh(geoSmall, material);
+            gearSmall = new THREE.Mesh(geoSmall, materials);
 
-            // Meshed with Gear 2. Distance: (20 + 10) * 0.25 / 2 = 3.75
-            // Positioned at -90 degrees relative to Gear 2
             const dist23 = (20 + 10) * module / 2;
-            const angle23 = -Math.PI / 2;
+            const angle23 = -Math.PI / 1.5;
             gearSmall.position.set(
                 gearMedium.position.x + Math.cos(angle23) * dist23,
                 gearMedium.position.y + Math.sin(angle23) * dist23,
@@ -1456,18 +1466,28 @@
             gearSmall.rotation.z = Math.PI / 10;
             gearGroup.add(gearSmall);
 
+            gearGroup.position.set(0, 0, 0);
             backgroundScene.add(gearGroup);
 
-            // Lighting
-            const pointLight = new THREE.PointLight(0xFFFFFF, 1.5);
-            pointLight.position.set(5, 5, 15);
-            backgroundScene.add(pointLight);
+            // High-Intensity Lighting Protocol
+            const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 3);
+            directionalLight.position.set(5, 10, 10);
+            backgroundScene.add(directionalLight);
 
-            const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.3);
-            backgroundScene.add(ambientLight);
+            mouseLight = new THREE.PointLight(0xFFFFFF, 4, 100);
+            mouseLight.position.set(0, 0, 15);
+            backgroundScene.add(mouseLight);
 
-            // Centering logic
+            const hemiLight = new THREE.HemisphereLight(0x404040, 0x000000, 1);
+            backgroundScene.add(hemiLight);
+
             resizeHandler();
+
+            // Mouse Tracker
+            window.addEventListener('mousemove', (e) => {
+                targetMouseX = (e.clientX / window.innerWidth - 0.5) * 40;
+                targetMouseY = -(e.clientY / window.innerHeight - 0.5) * 40;
+            });
         }
 
         // 2. Smooth Scroll Engine (Lenis)
@@ -1488,9 +1508,17 @@
         function animate(time) {
             lenis.raf(time);
 
+            // Smooth Light Tracking
+            currentMouseX += (targetMouseX - currentMouseX) * 0.1;
+            currentMouseY += (targetMouseY - currentMouseY) * 0.1;
+            if (mouseLight) {
+                mouseLight.position.x = currentMouseX;
+                mouseLight.position.y = currentMouseY;
+            }
+
             if (gearLarge && gearMedium && gearSmall) {
                 gearLarge.rotation.z -= baseSpeed;
-                gearMedium.rotation.z = -gearLarge.rotation.z * (40 / 20) + (Math.PI / 20); // Sync + Reset phase
+                gearMedium.rotation.z = -gearLarge.rotation.z * (40 / 20) + (Math.PI / 20);
                 gearSmall.rotation.z = -gearMedium.rotation.z * (20 / 10) + (Math.PI / 10);
             }
 
@@ -1504,11 +1532,12 @@
             backgroundCamera.updateProjectionMatrix();
             backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
 
-            // Keep group centered (already at 0,0, but group scale can be adjusted for mobile)
             if (window.innerWidth < 768) {
-                gearGroup.scale.set(0.7, 0.7, 0.7);
+                gearGroup.scale.set(0.65, 0.65, 0.65);
+                backgroundCamera.position.z = 35;
             } else {
                 gearGroup.scale.set(1.1, 1.1, 1.1);
+                backgroundCamera.position.z = 30;
             }
         }
 
