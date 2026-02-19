@@ -1353,7 +1353,8 @@
 
         function initBackground() {
             backgroundScene = new THREE.Scene();
-            backgroundScene.background = new THREE.Color(0x000000);
+            // Removed scene.background to let CSS background-color: #000000 handle it
+            // This ensures alpha: true works as intended.
 
             const aspect = window.innerWidth / window.innerHeight;
             const d = 10;
@@ -1371,7 +1372,7 @@
             const gearMaterial = new THREE.MeshBasicMaterial({
                 color: GHOST_GOLD,
                 transparent: true,
-                opacity: 0.1,
+                opacity: 0.3, // Increased for better visibility
                 wireframe: true
             });
 
@@ -1402,6 +1403,22 @@
 
             console.log("SHADOW MACHINE ONLINE: 2D GEAR SYSTEM ACTIVE");
         }
+
+        // 2. Smooth Scroll Engine (Lenis)
+        const lenis = new Lenis({
+            duration: 1.4,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smooth: true
+        });
+
+        // Anchor Link Scroll Protocol
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                lenis.scrollTo(targetId);
+            });
+        });
 
         function animate(time) {
             lenis.raf(time);
@@ -1437,15 +1454,19 @@
         window.addEventListener('resize', () => {
             const aspect = window.innerWidth / window.innerHeight;
             const d = 10;
-            backgroundCamera.left = -d * aspect;
-            backgroundCamera.right = d * aspect;
-            backgroundCamera.top = d;
-            backgroundCamera.bottom = -d;
-            backgroundCamera.updateProjectionMatrix();
-            backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
+            if (backgroundCamera) {
+                backgroundCamera.left = -d * aspect;
+                backgroundCamera.right = d * aspect;
+                backgroundCamera.top = d;
+                backgroundCamera.bottom = -d;
+                backgroundCamera.updateProjectionMatrix();
+            }
+            if (backgroundRenderer) {
+                backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
+            }
         });
 
-        console.log("3D SHADOW ENGINE ONLINE");
+        console.log("SHADOW MACHINE: 2D GEAR ENGINE ACTIVE");
 
         // ============================================================
         // EXTRACTION TERMINAL ENGINE
