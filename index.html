@@ -1706,7 +1706,7 @@
             }
 
             // --- AI Proxy Gateway ---
-            async function callGemini(handle, country, currency, symbol, price) {
+            async function callGroqEngine(handle, country, currency, symbol, price) {
                 const response = await fetch('/api/extract', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1733,7 +1733,7 @@
 
             // Parse revenue number from AI output
             function parseRevenue(aiText) {
-                const match = aiText.match(/PROJECTED\s+MONTHLY\s+REVENUE[:\s]+[^\d]*([\d,]+)/i);
+                const match = aiText.match(/PROJECTED\s+REVENUE[:\s]+[^\d]*([\d,]+)/i);
                 if (match) {
                     return parseInt(match[1].replace(/,/g, ''), 10);
                 }
@@ -1788,15 +1788,15 @@
                 // Phase 2: Secure AI Extraction
                 let aiText = '';
                 try {
-                    aiText = await callGemini(handle, country, currency, symbol, price);
+                    aiText = await callGroqEngine(handle, country, currency, symbol, price);
                 } catch (err) {
-                    const isQuotaError = err.status === 429 || /quota/i.test(err.message) || /RATE_LIMIT/i.test(err.message);
-                    if (isQuotaError) {
-                        await printLineAfterDelay('> [SYSTEM LOCKOUT]: GOOGLE QUOTA EXCEEDED. RETRY IN 60S.', 500, 'gold');
+                    const isRateLimit = err.status === 429 || /quota/i.test(err.message) || /rate limit/i.test(err.message);
+                    if (isRateLimit) {
+                        await printLineAfterDelay('> GROQ RATE LIMIT REACHED. STANDING BY...', 500, 'gold');
                         throw err; // Propagate to button listener for cooldown
                     }
                     // Fallback for other errors
-                    aiText = `> API_ERROR: ${err.message}\n> FALLING BACK TO LOCAL CALCULATION PROTOCOL...\n> PROJECTED MONTHLY REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
+                    aiText = `> API_ERROR: ${err.message}\n> FALLING BACK TO LOCAL CALCULATION PROTOCOL...\n> PROJECTED REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
                 }
 
                 await printLineAfterDelay('> DECRYPTING AI CORE ANALYSIS...', 100, 'dim');
@@ -1847,10 +1847,10 @@
                     startCooldown(60);
                 }).catch(err => {
                     isRunning = false;
-                    const isQuotaError = err.status === 429 || /quota/i.test(err.message) || /RATE_LIMIT/i.test(err.message);
+                    const isRateLimit = err.status === 429 || /quota/i.test(err.message) || /rate limit/i.test(err.message);
 
-                    if (isQuotaError) {
-                        printLine('> SYSTEM OVERLOAD: COOLING DOWN (60s)', 'gold');
+                    if (isRateLimit) {
+                        printLine('> GROQ RATE LIMIT REACHED. STANDING BY...', 'gold');
                         startCooldown(60);
                     } else {
                         printLine(`> CRITICAL ERROR: ${err.message}`, 'gold');

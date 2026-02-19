@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     }
 
     const { handle, country, currency, symbol, price } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
 
     // --- Basic In-Memory Rate Limiting (Per-Instance) ---
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'global';
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     if (userData.count >= MAX_REQUESTS) {
         const waitTime = Math.ceil((userData.resetAt - now) / 1000);
         return res.status(429).json({
-            error: `RATE_LIMIT_EXCEEDED: Shadow Intelligence Engine overloaded. Reset in ${waitTime}s.`
+            error: `RATE_LIMIT_EXCEEDED: Groq Intelligence Engine overloaded. Reset in ${waitTime}s.`
         });
     }
 
@@ -38,43 +38,42 @@ export default async function handler(req, res) {
     // ---------------------------------------------------
 
     if (!apiKey) {
-        return res.status(500).json({ error: 'GEMINI_API_KEY not configured on server.' });
+        return res.status(500).json({ error: 'GROQ_API_KEY not configured on server.' });
     }
 
-    // Using gemini-2.0-flash on v1: Latest high-performance model for 2026.
-    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    // Using Llama-3.3-70b-versatile on Groq: High-performance OpenAI-compatible endpoint.
+    const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-    const prompt = `Shadow Protocol AI: Revenue Extraction.
-Data: @${handle}, ${country}, ${currency}(${symbol}), ${symbol}${price}, 20% floor.
-Task: Tactical analysis. ALL CAPS. Direct. No fluff.
-Format:
-> [Market]
-> [Gap]
-> [Architecture]
-> EXTRACTION: 1k buyers @ 20% floor — PROJECTED REVENUE: ${symbol}[1000*0.20*${price}]
-> [Final]
-Output ONLY ">" lines. Max 90ch.`;
+    const prompt = `Act as Shadow Protocol AI. Generate a STRATEGIC REVENUE AUDIT for @${handle} in ${country}.
+Data: ${currency}(${symbol}), target price ${symbol}${price}, 20% extraction floor.
+Structure (MUST use ">" prefix on every output line):
+> CREATOR OVERVIEW: [Direct, tactical profile assessment]
+> THE NUMBERS: Assuming 1,000 core buyers at 20% floor — PROJECTED REVENUE: ${symbol}[calculate: 1000 * 0.20 * ${price}]
+> DEMAND ANALYSIS: [High-intensity market gap analysis for ${country}]
+Keep it sharp, ALL CAPS for keywords, and strictly one line per section. No markdown. Output ONLY ">" prefixed lines.`;
 
     try {
-        const response = await fetch(GEMINI_URL, {
+        const response = await fetch(GROQ_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0.8,
-                    maxOutputTokens: 512,
-                }
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7,
+                max_tokens: 512
             })
         });
 
         if (!response.ok) {
             const err = await response.json();
-            return res.status(response.status).json({ error: err?.error?.message || 'Gemini API Error' });
+            return res.status(response.status).json({ error: err?.error?.message || 'Groq API Error' });
         }
 
         const data = await response.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const text = data?.choices?.[0]?.message?.content || '';
 
         return res.status(200).json({ text: text.trim() });
     } catch (error) {
