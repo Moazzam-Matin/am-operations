@@ -44,25 +44,16 @@ export default async function handler(req, res) {
     // Using gemini-2.0-flash on v1: Latest high-performance model for 2026.
     const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-    const prompt = `You are the Shadow Protocol AI for A&M Operations — a ruthless, high-precision revenue extraction system.
-
-A creator has submitted their data for analysis:
-- Instagram Handle: @${handle}
-- Target Market: ${country}
-- Currency: ${currency} (${symbol})
-- Target Product Price: ${symbol}${price}
-- Extraction Model: 20% conversion floor on engaged audience
-
-Your task: Generate a sharp, cold, tactical shadow monetization analysis in terminal style. Use ALL CAPS for key terms. Be brutally direct. No fluff.
-
-Structure your response EXACTLY like this (each point on its own line, prefixed with ">"):
-> [1-2 line market intelligence assessment for ${country}]
-> [1 line on the creator's monetization gap]
-> [1 line on the recommended offer architecture]
-> EXTRACTION CALCULATION: Assuming 1,000 hyper-engaged buyers at 20% floor — PROJECTED MONTHLY REVENUE: ${symbol}[calculate: 1000 * 0.20 * ${price} formatted with commas]
-> [1 closing line — cold, confident, final]
-
-Keep each line under 90 characters. Output ONLY the ">" prefixed lines. No headers, no markdown, no explanation.`;
+    const prompt = `Shadow Protocol AI: Revenue Extraction.
+Data: @${handle}, ${country}, ${currency}(${symbol}), ${symbol}${price}, 20% floor.
+Task: Tactical analysis. ALL CAPS. Direct. No fluff.
+Format:
+> [Market]
+> [Gap]
+> [Architecture]
+> EXTRACTION: 1k buyers @ 20% floor — PROJECTED REVENUE: ${symbol}[1000*0.20*${price}]
+> [Final]
+Output ONLY ">" lines. Max 90ch.`;
 
     try {
         const response = await fetch(GEMINI_URL, {

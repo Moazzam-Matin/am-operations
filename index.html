@@ -1784,6 +1784,7 @@
                 const [, aiText] = await Promise.all([
                     Promise.all(preLines.map(l => printLineAfterDelay(l.text, l.delay, l.cls))),
                     callGemini(handle, country, currency, symbol, price).catch(err => {
+                        if (err.status === 429 || /quota/i.test(err.message) || /RATE_LIMIT/i.test(err.message)) throw err;
                         return `> API_ERROR: ${err.message}\n> FALLING BACK TO LOCAL CALCULATION PROTOCOL...\n> PROJECTED MONTHLY REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
                     })
                 ]);
@@ -1824,25 +1825,33 @@
                 const currency = country.currency;
 
                 isRunning = true;
-                startBtn.innerHTML = '&#9203;&nbsp;&nbsp;RUNNING...';
-                startBtn.style.opacity = '0.7';
+
+                // --- Request Debouncing: Immediate Disable & Visual Gray Out ---
+                startBtn.classList.add('disabled');
+                startBtn.disabled = true;
+                startBtn.innerHTML = '&#9203;&nbsp;&nbsp;INITIALIZING...';
+                startBtn.style.background = '#333';
+                startBtn.style.color = '#888';
+                startBtn.style.opacity = '0.5';
                 startBtn.style.cursor = 'not-allowed';
 
                 runExtractionSequence(handle, country, currency, price).then(() => {
                     isRunning = false;
                     startCooldown(60);
                 }).catch(err => {
-                    const isRateLimit = err.status === 429 || /RATE_LIMIT_EXCEEDED/i.test(err.message);
-                    printLine(isRateLimit ? `> ${err.message}` : `> CRITICAL ERROR: ${err.message}`, 'gold');
                     isRunning = false;
+                    const isQuotaError = err.status === 429 || /quota/i.test(err.message) || /RATE_LIMIT/i.test(err.message);
 
-                    if (isRateLimit) {
-                        // Extract seconds from message if possible, or default to 30
-                        const match = err.message.match(/(\d+)s/);
-                        const sec = match ? parseInt(match[1]) : 30;
-                        startCooldown(sec);
+                    if (isQuotaError) {
+                        printLine('> SYSTEM OVERLOAD: COOLING DOWN (60s)', 'gold');
+                        startCooldown(60);
                     } else {
+                        printLine(`> CRITICAL ERROR: ${err.message}`, 'gold');
+                        startBtn.classList.remove('disabled');
+                        startBtn.disabled = false;
                         startBtn.innerHTML = '&#9654;&nbsp;&nbsp;RETRY';
+                        startBtn.style.background = '#D4AF37';
+                        startBtn.style.color = '#000';
                         startBtn.style.opacity = '1';
                         startBtn.style.cursor = 'pointer';
                     }
@@ -1850,15 +1859,23 @@
 
                 function startCooldown(seconds) {
                     let remaining = seconds;
+                    startBtn.classList.add('disabled');
+                    startBtn.disabled = true;
+                    startBtn.style.background = '#222';
+                    startBtn.style.color = '#555';
                     startBtn.style.opacity = '0.5';
                     startBtn.style.cursor = 'not-allowed';
 
                     const interval = setInterval(() => {
-                        startBtn.innerHTML = `&#9203;&nbsp;&nbsp;COOLDOWN (${remaining}s)`;
+                        startBtn.innerHTML = `&#9203;&nbsp;&nbsp;WAIT (${remaining}s)`;
                         remaining--;
                         if (remaining < 0) {
                             clearInterval(interval);
+                            startBtn.classList.remove('disabled');
+                            startBtn.disabled = false;
                             startBtn.innerHTML = '&#9654;&nbsp;&nbsp;RUN AGAIN';
+                            startBtn.style.background = '#D4AF37';
+                            startBtn.style.color = '#000';
                             startBtn.style.opacity = '1';
                             startBtn.style.cursor = 'pointer';
                         }
