@@ -1320,150 +1320,106 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
     <script>
-        // 1. Three.js 3D Monolith Engine
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.002);
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({
-            canvas: document.getElementById('three-canvas'),
-            antialias: true,
-            alpha: true
-        });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // --- Shadow Machine: 2D Mechanical Gear System ---
+        let backgroundScene, backgroundCamera, backgroundRenderer;
+        let gearLarge, gearMedium, gearSmall;
+        const GHOST_GOLD = 0xFFD700;
+        const baseSpeed = 0.005; // "Industrial" slow and heavy
 
-        // Create the "A&M" Monolith - Accurate overlapping monogram
-        const shape = new THREE.Shape();
+        function createGearShape(teeth, pitchRadius) {
+            const shape = new THREE.Shape();
+            const toothHeight = pitchRadius * 0.2;
+            const toothWidth = (Math.PI * 2 * pitchRadius) / (teeth * 2);
 
-        // Letter 'A' - left side
-        shape.moveTo(-3, -2);
-        shape.lineTo(-1.5, 2);
-        shape.lineTo(-0.5, 2);
-        shape.lineTo(0.5, -2);
-        shape.lineTo(-0.5, -2);
-        shape.lineTo(-1, 0);
-        shape.lineTo(-2, 0);
-        shape.lineTo(-3, -2);
+            for (let i = 0; i < teeth; i++) {
+                const angle = (i / teeth) * Math.PI * 2;
+                const nextAngle = ((i + 0.5) / teeth) * Math.PI * 2;
 
-        // Ampersand '&' - Neon center
-        const ampShape = new THREE.Shape();
-        ampShape.absarc(0, 0.8, 1.2, 0, Math.PI * 2, false);
-        const ampHole = new THREE.Path();
-        ampHole.absarc(0, 0.8, 0.6, 0, Math.PI * 2, true);
-        ampShape.holes.push(ampHole);
+                // Outer point (top of tooth)
+                const rOut = pitchRadius + toothHeight / 2;
+                const rIn = pitchRadius - toothHeight / 2;
 
-        const ampBottom = new THREE.Shape();
-        ampBottom.absarc(0.2, -0.6, 1, 0, Math.PI * 2, false);
-        const ampBottomHole = new THREE.Path();
-        ampBottomHole.absarc(0.2, -0.6, 0.5, 0, Math.PI * 2, true);
-        ampBottom.holes.push(ampBottomHole);
+                if (i === 0) shape.moveTo(Math.cos(angle) * rOut, Math.sin(angle) * rOut);
 
-        // Letter 'M' - right side
-        const mShape = new THREE.Shape();
-        mShape.moveTo(0, -2);
-        mShape.lineTo(0, 2);
-        mShape.lineTo(0.8, 2);
-        mShape.lineTo(1.5, 0);
-        mShape.lineTo(2.2, 2);
-        mShape.lineTo(3, 2);
-        mShape.lineTo(3, -2);
-        mShape.lineTo(2.2, -2);
-        mShape.lineTo(2.2, 1);
-        mShape.lineTo(1.5, -0.5);
-        mShape.lineTo(0.8, 1);
-        mShape.lineTo(0.8, -2);
-        mShape.lineTo(0, -2);
+                shape.lineTo(Math.cos(angle + toothWidth * 0.01) * rOut, Math.sin(angle + toothWidth * 0.01) * rOut);
+                shape.lineTo(Math.cos(nextAngle - toothWidth * 0.01) * rIn, Math.sin(nextAngle - toothWidth * 0.01) * rIn);
+                shape.lineTo(Math.cos(nextAngle + toothWidth * 0.01) * rIn, Math.sin(nextAngle + toothWidth * 0.01) * rIn);
 
-        const extrudeSettings = {
-            depth: 0.8,
-            bevelEnabled: true,
-            bevelThickness: 0.15,
-            bevelSize: 0.1,
-            bevelSegments: 3
-        };
+                const finalStepAngle = ((i + 1) / teeth) * Math.PI * 2;
+                shape.lineTo(Math.cos(finalStepAngle - toothWidth * 0.01) * rOut, Math.sin(finalStepAngle - toothWidth * 0.01) * rOut);
+            }
+            return shape;
+        }
 
-        const geometryA = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        const geometryAmp1 = new THREE.ExtrudeGeometry(ampShape, extrudeSettings);
-        const geometryAmp2 = new THREE.ExtrudeGeometry(ampBottom, extrudeSettings);
-        const geometryM = new THREE.ExtrudeGeometry(mShape, extrudeSettings);
+        function initBackground() {
+            backgroundScene = new THREE.Scene();
+            backgroundScene.background = new THREE.Color(0x000000);
 
+            const aspect = window.innerWidth / window.innerHeight;
+            const d = 10;
+            backgroundCamera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 0.1, 1000);
+            backgroundCamera.position.set(0, 0, 10);
 
-        // Unified Silver Chrome Material
-        const chromeMaterial = new THREE.MeshPhysicalMaterial({
-            color: 0xE8E8E8,
-            metalness: 1,
-            roughness: 0.05,
-            emissive: 0x666666,
-            emissiveIntensity: 0.4,
-            wireframe: true,
-            clearcoat: 1.0,
-            clearcoatRoughness: 0.1
-        });
-
-        const letterA = new THREE.Mesh(geometryA, chromeMaterial);
-        const ampersand1 = new THREE.Mesh(geometryAmp1, chromeMaterial);
-        const ampersand2 = new THREE.Mesh(geometryAmp2, chromeMaterial);
-        const letterM = new THREE.Mesh(geometryM, chromeMaterial);
-
-        // Position letters
-        letterA.position.x = -2.5;
-        ampersand1.position.x = 0;
-        ampersand2.position.x = 0;
-        letterM.position.x = 2.5;
-
-        const monolith = new THREE.Group();
-        monolith.add(letterA);
-        monolith.add(ampersand1);
-        monolith.add(ampersand2);
-        monolith.add(letterM);
-        monolith.scale.set(2.0, 2.0, 2.0); // Much larger and more visible
-        scene.add(monolith);
-
-        // Lighting - Enhanced for silver chrome
-        const spotLight = new THREE.SpotLight(0xFFFFFF, 8);
-        spotLight.position.set(8, 8, 8);
-        scene.add(spotLight);
-
-        const spotLight2 = new THREE.SpotLight(0xFFFFFF, 6);
-        spotLight2.position.set(-8, 8, 8);
-        scene.add(spotLight2);
-
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-
-        camera.position.z = 10; // Adjusted for full view
-        camera.position.y = 0.5; // Slightly raised to center on screen
-
-        // 2. Smooth Scroll Engine (Lenis)
-        const lenis = new Lenis({
-            duration: 1.4,
-            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-            smooth: true
-        });
-
-        // Anchor Link Scroll Protocol
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const targetId = this.getAttribute('href');
-                lenis.scrollTo(targetId);
+            backgroundRenderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('three-canvas'),
+                antialias: true,
+                alpha: true
             });
-        });
+            backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
+            backgroundRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-        // Loop
+            const gearMaterial = new THREE.MeshBasicMaterial({
+                color: GHOST_GOLD,
+                transparent: true,
+                opacity: 0.1,
+                wireframe: true
+            });
+
+            const extrudeSettings = { depth: 0.1, bevelEnabled: false };
+
+            // Gear 1 (Large): 24 teeth
+            const shapeLarge = createGearShape(24, 4);
+            gearLarge = new THREE.Mesh(new THREE.ExtrudeGeometry(shapeLarge, extrudeSettings), gearMaterial);
+            gearLarge.position.set(-6, 4, 0);
+            backgroundScene.add(gearLarge);
+
+            // Gear 2 (Medium): 16 teeth
+            // D1 + D2 must match distance. D1=4, D2=2.7 approx? Actually linkage: R1 + R2 = Distance.
+            // Large R=4, Medium R=16/24 * 4 = 2.66. Distance = 6.66.
+            const shapeMedium = createGearShape(16, 2.66);
+            gearMedium = new THREE.Mesh(new THREE.ExtrudeGeometry(shapeMedium, extrudeSettings), gearMaterial);
+            // Angle adjustment to mesh teeth: Math.PI / teeth
+            gearMedium.rotation.z = Math.PI / 16;
+            gearMedium.position.set(0.6, 4.3, 0); // Manual offset for interlock
+            backgroundScene.add(gearMedium);
+
+            // Gear 3 (Small): 8 teeth
+            // Medium R=2.66, Small R=8/24 * 4 = 1.33. Distance = 2.66 + 1.33 = 3.99
+            const shapeSmall = createGearShape(8, 1.33);
+            gearSmall = new THREE.Mesh(new THREE.ExtrudeGeometry(shapeSmall, extrudeSettings), gearMaterial);
+            gearSmall.position.set(0.6, 0.35, 0); // Positioned below Gear 2
+            backgroundScene.add(gearSmall);
+
+            console.log("SHADOW MACHINE ONLINE: 2D GEAR SYSTEM ACTIVE");
+        }
+
         function animate(time) {
             lenis.raf(time);
 
-            // Kinetic Rotation - slower for better visibility
-            monolith.rotation.y += 0.003;
-            monolith.rotation.x = Math.sin(time / 5000) * 0.1; // Subtle tilt
+            if (gearLarge && gearMedium && gearSmall) {
+                // Rotation linkage: Gear 1 (CW) -> Gear 2 (CCW) -> Gear 3 (CW)
+                gearLarge.rotation.z -= baseSpeed;
+                // Gear 2 speed = V1 * (Teeth1 / Teeth2)
+                gearMedium.rotation.z += baseSpeed * (24 / 16);
+                // Gear 3 speed = V2 * (Teeth2 / Teeth3) = V1 * (Teeth1 / Teeth3)
+                gearSmall.rotation.z -= baseSpeed * (24 / 8);
+            }
 
-            // Gentle floating - reduced to stay centered
-            monolith.position.y = Math.sin(time / 3000) * 0.15;
-
-            renderer.render(scene, camera);
+            backgroundRenderer.render(backgroundScene, backgroundCamera);
             requestAnimationFrame(animate);
         }
+
+        initBackground();
         requestAnimationFrame(animate);
 
         // 3. Reveal Engine (CRITICAL - Makes content visible)
@@ -1479,9 +1435,14 @@
 
         // Resize
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            const aspect = window.innerWidth / window.innerHeight;
+            const d = 10;
+            backgroundCamera.left = -d * aspect;
+            backgroundCamera.right = d * aspect;
+            backgroundCamera.top = d;
+            backgroundCamera.bottom = -d;
+            backgroundCamera.updateProjectionMatrix();
+            backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
         });
 
         console.log("3D SHADOW ENGINE ONLINE");
