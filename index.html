@@ -1320,46 +1320,83 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
     <script>
-        // --- Shadow Machine: 2D Mechanical Gear System ---
+        // --- Industrial Engine: Involute Gear System ---
         let backgroundScene, backgroundCamera, backgroundRenderer;
+        let gearGroup;
         let gearLarge, gearMedium, gearSmall;
         const GHOST_GOLD = 0xFFD700;
-        const baseSpeed = 0.005; // "Industrial" slow and heavy
+        const baseSpeed = 0.005;
 
-        function createGearShape(teeth, pitchRadius) {
+        /**
+         * Generates a mathematically accurate Involute Gear profile
+         */
+        function createInvoluteGearShape(teeth, module, pressureAngleDegrees = 20) {
             const shape = new THREE.Shape();
-            const toothHeight = pitchRadius * 0.2;
-            const toothWidth = (Math.PI * 2 * pitchRadius) / (teeth * 2);
+            const pressureAngle = pressureAngleDegrees * (Math.PI / 180);
+            const pitchRadius = (module * teeth) / 2;
+            const baseRadius = pitchRadius * Math.cos(pressureAngle);
+            const outerRadius = pitchRadius + module;
+            const rootRadius = pitchRadius - 1.25 * module;
+
+            const totalAngle = (Math.PI * 2) / teeth;
+            const toothWidthAngle = totalAngle / 4; // Approx width at pitch circle
 
             for (let i = 0; i < teeth; i++) {
-                const angle = (i / teeth) * Math.PI * 2;
-                const nextAngle = ((i + 0.5) / teeth) * Math.PI * 2;
+                const centerAngle = i * totalAngle;
 
-                // Outer point (top of tooth)
-                const rOut = pitchRadius + toothHeight / 2;
-                const rIn = pitchRadius - toothHeight / 2;
+                // Involute calculation points
+                const points = [];
+                const steps = 10;
+                // Start from base circle or root (whichever is smaller)
+                const startR = Math.max(baseRadius, rootRadius);
 
-                if (i === 0) shape.moveTo(Math.cos(angle) * rOut, Math.sin(angle) * rOut);
+                for (let j = 0; j <= steps; j++) {
+                    const r = startR + (outerRadius - startR) * (j / steps);
+                    const angleAtR = Math.sqrt(Math.pow(r / baseRadius, 2) - 1) - Math.acos(baseRadius / r);
+                    points.push({ r, a: angleAtR });
+                }
 
-                shape.lineTo(Math.cos(angle + toothWidth * 0.01) * rOut, Math.sin(angle + toothWidth * 0.01) * rOut);
-                shape.lineTo(Math.cos(nextAngle - toothWidth * 0.01) * rIn, Math.sin(nextAngle - toothWidth * 0.01) * rIn);
-                shape.lineTo(Math.cos(nextAngle + toothWidth * 0.01) * rIn, Math.sin(nextAngle + toothWidth * 0.01) * rIn);
+                // --- Draw One Tooth ---
+                // 1. Move to root
+                const r0 = rootRadius;
+                const a0 = centerAngle - toothWidthAngle;
+                if (i === 0) shape.moveTo(Math.cos(a0) * r0, Math.sin(a0) * r0);
+                else shape.lineTo(Math.cos(a0) * r0, Math.sin(a0) * r0);
 
-                const finalStepAngle = ((i + 1) / teeth) * Math.PI * 2;
-                shape.lineTo(Math.cos(finalStepAngle - toothWidth * 0.01) * rOut, Math.sin(finalStepAngle - toothWidth * 0.01) * rOut);
+                // 2. Left Flank (Involute)
+                points.forEach(p => {
+                    const a = centerAngle - toothWidthAngle + p.a;
+                    shape.lineTo(Math.cos(a) * p.r, Math.sin(a) * p.r);
+                });
+
+                // 3. Top Land
+                const aTopLeft = centerAngle - toothWidthAngle + points[steps].a;
+                const aTopRight = centerAngle + toothWidthAngle - points[steps].a;
+                // arc for top land
+                for (let k = 0; k <= 5; k++) {
+                    const a = aTopLeft + (aTopRight - aTopLeft) * (k / 5);
+                    shape.lineTo(Math.cos(a) * outerRadius, Math.sin(a) * outerRadius);
+                }
+
+                // 4. Right Flank (Mirror Involute)
+                for (let j = steps; j >= 0; j--) {
+                    const p = points[j];
+                    const a = centerAngle + toothWidthAngle - p.a;
+                    shape.lineTo(Math.cos(a) * p.r, Math.sin(a) * p.r);
+                }
+
+                // 5. Bottom Land
+                const aEnd = centerAngle + totalAngle - toothWidthAngle;
+                shape.lineTo(Math.cos(aEnd) * rootRadius, Math.sin(aEnd) * rootRadius);
             }
             return shape;
         }
 
         function initBackground() {
             backgroundScene = new THREE.Scene();
-            // Removed scene.background to let CSS background-color: #000000 handle it
-            // This ensures alpha: true works as intended.
 
-            const aspect = window.innerWidth / window.innerHeight;
-            const d = 10;
-            backgroundCamera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 0.1, 1000);
-            backgroundCamera.position.set(0, 0, 10);
+            backgroundCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            backgroundCamera.position.set(0, 0, 25);
 
             backgroundRenderer = new THREE.WebGLRenderer({
                 canvas: document.getElementById('three-canvas'),
@@ -1369,39 +1406,68 @@
             backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
             backgroundRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-            const gearMaterial = new THREE.MeshBasicMaterial({
+            const material = new THREE.MeshStandardMaterial({
                 color: GHOST_GOLD,
-                transparent: true,
-                opacity: 0.3, // Increased for better visibility
-                wireframe: true
+                metalness: 0.9,
+                roughness: 0.2
             });
 
-            const extrudeSettings = { depth: 0.1, bevelEnabled: false };
+            const extrudeSettings = { depth: 2, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1 };
 
-            // Gear 1 (Large): 24 teeth
-            const shapeLarge = createGearShape(24, 4);
-            gearLarge = new THREE.Mesh(new THREE.ExtrudeGeometry(shapeLarge, extrudeSettings), gearMaterial);
-            gearLarge.position.set(-6, 4, 0);
-            backgroundScene.add(gearLarge);
+            gearGroup = new THREE.Group();
 
-            // Gear 2 (Medium): 16 teeth
-            // D1 + D2 must match distance. D1=4, D2=2.7 approx? Actually linkage: R1 + R2 = Distance.
-            // Large R=4, Medium R=16/24 * 4 = 2.66. Distance = 6.66.
-            const shapeMedium = createGearShape(16, 2.66);
-            gearMedium = new THREE.Mesh(new THREE.ExtrudeGeometry(shapeMedium, extrudeSettings), gearMaterial);
-            // Angle adjustment to mesh teeth: Math.PI / teeth
-            gearMedium.rotation.z = Math.PI / 16;
-            gearMedium.position.set(0.6, 4.3, 0); // Manual offset for interlock
-            backgroundScene.add(gearMedium);
+            // Gear 1: Large Master (40 teeth)
+            const module = 0.25;
+            const shapeLarge = createInvoluteGearShape(40, module);
+            const geoLarge = new THREE.ExtrudeGeometry(shapeLarge, extrudeSettings);
+            geoLarge.center();
+            gearLarge = new THREE.Mesh(geoLarge, material);
+            gearGroup.add(gearLarge);
 
-            // Gear 3 (Small): 8 teeth
-            // Medium R=2.66, Small R=8/24 * 4 = 1.33. Distance = 2.66 + 1.33 = 3.99
-            const shapeSmall = createGearShape(8, 1.33);
-            gearSmall = new THREE.Mesh(new THREE.ExtrudeGeometry(shapeSmall, extrudeSettings), gearMaterial);
-            gearSmall.position.set(0.6, 0.35, 0); // Positioned below Gear 2
-            backgroundScene.add(gearSmall);
+            // Gear 2: Medium Slave (20 teeth)
+            const shapeMedium = createInvoluteGearShape(20, module);
+            const geoMedium = new THREE.ExtrudeGeometry(shapeMedium, extrudeSettings);
+            geoMedium.center();
+            gearMedium = new THREE.Mesh(geoMedium, material);
 
-            console.log("SHADOW MACHINE ONLINE: 2D GEAR SYSTEM ACTIVE");
+            // Distance: (N1 + N2) * module / 2 = (40 + 20) * 0.25 / 2 = 7.5
+            const dist12 = (40 + 20) * module / 2;
+            const angle12 = Math.PI / 6; // 2 o'clock
+            gearMedium.position.set(Math.cos(angle12) * dist12, Math.sin(angle12) * dist12, 0);
+            // Counter-rotation and tooth alignment: half tooth offset
+            gearMedium.rotation.z = Math.PI / 20;
+            gearGroup.add(gearMedium);
+
+            // Gear 3: Small High-Speed (10 teeth)
+            const shapeSmall = createInvoluteGearShape(10, module);
+            const geoSmall = new THREE.ExtrudeGeometry(shapeSmall, extrudeSettings);
+            geoSmall.center();
+            gearSmall = new THREE.Mesh(geoSmall, material);
+
+            // Meshed with Gear 2. Distance: (20 + 10) * 0.25 / 2 = 3.75
+            // Positioned at -90 degrees relative to Gear 2
+            const dist23 = (20 + 10) * module / 2;
+            const angle23 = -Math.PI / 2;
+            gearSmall.position.set(
+                gearMedium.position.x + Math.cos(angle23) * dist23,
+                gearMedium.position.y + Math.sin(angle23) * dist23,
+                0
+            );
+            gearSmall.rotation.z = Math.PI / 10;
+            gearGroup.add(gearSmall);
+
+            backgroundScene.add(gearGroup);
+
+            // Lighting
+            const pointLight = new THREE.PointLight(0xFFFFFF, 1.5);
+            pointLight.position.set(5, 5, 15);
+            backgroundScene.add(pointLight);
+
+            const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.3);
+            backgroundScene.add(ambientLight);
+
+            // Centering logic
+            resizeHandler();
         }
 
         // 2. Smooth Scroll Engine (Lenis)
@@ -1411,7 +1477,6 @@
             smooth: true
         });
 
-        // Anchor Link Scroll Protocol
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
@@ -1424,22 +1489,33 @@
             lenis.raf(time);
 
             if (gearLarge && gearMedium && gearSmall) {
-                // Rotation linkage: Gear 1 (CW) -> Gear 2 (CCW) -> Gear 3 (CW)
                 gearLarge.rotation.z -= baseSpeed;
-                // Gear 2 speed = V1 * (Teeth1 / Teeth2)
-                gearMedium.rotation.z += baseSpeed * (24 / 16);
-                // Gear 3 speed = V2 * (Teeth2 / Teeth3) = V1 * (Teeth1 / Teeth3)
-                gearSmall.rotation.z -= baseSpeed * (24 / 8);
+                gearMedium.rotation.z = -gearLarge.rotation.z * (40 / 20) + (Math.PI / 20); // Sync + Reset phase
+                gearSmall.rotation.z = -gearMedium.rotation.z * (20 / 10) + (Math.PI / 10);
             }
 
             backgroundRenderer.render(backgroundScene, backgroundCamera);
             requestAnimationFrame(animate);
         }
 
+        function resizeHandler() {
+            if (!backgroundCamera || !backgroundRenderer) return;
+            backgroundCamera.aspect = window.innerWidth / window.innerHeight;
+            backgroundCamera.updateProjectionMatrix();
+            backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Keep group centered (already at 0,0, but group scale can be adjusted for mobile)
+            if (window.innerWidth < 768) {
+                gearGroup.scale.set(0.7, 0.7, 0.7);
+            } else {
+                gearGroup.scale.set(1.1, 1.1, 1.1);
+            }
+        }
+
         initBackground();
         requestAnimationFrame(animate);
 
-        // 3. Reveal Engine (CRITICAL - Makes content visible)
+        // 3. Reveal Engine
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
@@ -1450,23 +1526,9 @@
 
         document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-        // Resize
-        window.addEventListener('resize', () => {
-            const aspect = window.innerWidth / window.innerHeight;
-            const d = 10;
-            if (backgroundCamera) {
-                backgroundCamera.left = -d * aspect;
-                backgroundCamera.right = d * aspect;
-                backgroundCamera.top = d;
-                backgroundCamera.bottom = -d;
-                backgroundCamera.updateProjectionMatrix();
-            }
-            if (backgroundRenderer) {
-                backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
-            }
-        });
+        window.addEventListener('resize', resizeHandler);
 
-        console.log("SHADOW MACHINE: 2D GEAR ENGINE ACTIVE");
+        console.log("SHADOW MACHINE: INDUSTRIAL INVOLUTE SYSTEM ACTIVE");
 
         // ============================================================
         // EXTRACTION TERMINAL ENGINE
