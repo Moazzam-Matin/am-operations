@@ -1939,7 +1939,22 @@
             // Parse revenue, metrics, and quality from AI output
             function parseAIExtraction(aiText) {
                 const revenueMatch = aiText.match(/REVENUE POTENTIAL FLOOR[:\s]+[^\d]*([\d,]+)/i);
-                const followersMatch = aiText.match(/FOLLOWER BASE[:\s]+(.*?)(?=\n|$)/i);
+
+                // Enhanced Follower Base Regex: Look for specific numbers
+                const followersLine = aiText.split('\n').find(l => l.includes('FOLLOWER BASE'));
+                let extractedFollowers = 10000; // Default fallback
+                if (followersLine) {
+                    const numMatch = followersLine.match(/[\d,.]+[KMB]?/i);
+                    if (numMatch) {
+                        let val = numMatch[0].replace(/,/g, '');
+                        if (val.toUpperCase().endsWith('K')) val = parseFloat(val) * 1000;
+                        else if (val.toUpperCase().endsWith('M')) val = parseFloat(val) * 1000000;
+                        else if (val.toUpperCase().endsWith('B')) val = parseFloat(val) * 1000000000;
+                        else val = parseFloat(val);
+                        extractedFollowers = isNaN(val) ? 10000 : val;
+                    }
+                }
+
                 const erMatch = aiText.match(/ENGAGEMENT RATE[:\s]+([\d.]+%?)/i);
                 const qualityMatch = aiText.match(/AUDIENCE QUALITY[:\s]+(\d+)/i);
 
@@ -1949,7 +1964,8 @@
 
                 return {
                     revenue: revenueMatch ? parseInt(revenueMatch[1].replace(/,/g, ''), 10) : null,
-                    followers: followersMatch ? followersMatch[1].trim() : "CALCULATING...",
+                    followers: followersLine ? followersLine.split(':')[1].trim() : "CALCULATING...",
+                    extractedFollowers: extractedFollowers,
                     er: erMatch ? erMatch[1].trim() : "STABLE",
                     quality: qualityMatch ? qualityMatch[1] : "95",
                     symbolOverride
@@ -2099,7 +2115,7 @@
                 await streamTextIntoLine('> RUNNING FINAL CALIBRATION...', 'dim', 30);
                 await new Promise(r => setTimeout(r, 1200));
 
-                const finalRevenue = revenue ?? Math.floor(price * 0.01 * 10000);
+                const finalRevenue = revenue ?? Math.floor(price * 0.01 * extractedFollowers * (parseInt(quality) / 100));
                 revealRevenue(finalRevenue, symbol);
             }
 

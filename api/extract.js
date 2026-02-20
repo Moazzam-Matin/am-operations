@@ -44,21 +44,22 @@ export default async function handler(req, res) {
     // Using Llama-3.3-70b-versatile on Groq: High-performance OpenAI-compatible endpoint.
     const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-    const prompt = `Act as Shadow Protocol AI. Generate a HIGH-LEVEL STRATEGIC REVENUE AUDIT for @${handle} in ${country}.
-Financial Protocols:
-1. NICHE_ID: Categorize creator (e.g. Finance, Tech, Luxury, etc.)
-2. QUALITY_SCORE: Assign 0-100% based on audience authenticity and engagement depth.
-3. REGIONAL_PROTOCOL: If @${handle} has an Indian/Desi audience, provide REVENUE POTENTIAL in INR (₹) regardless of input currency, adjusting for local CPM and purchasing power (PPP).
+    const prompt = `Act as a Shadow Protocol Social Media Data Analyst. Generate a HIGH-LEVEL STRATEGIC REVENUE AUDIT for @${handle} in ${country}.
+Analyze the niche of @${handle} and identify or simulate its growth patterns.
+Protocol:
+1. FOLLOWER_BASE: You MUST provide a specific follower count for @${handle}. Do NOT use ranges (e.g., 1M-2M). Use a specific, genuine-looking integer like "1,245,670" or "45,231". If the specific handle is not in your direct training data, simulate a realistic count based on the username's niche and typical engagement for similar profiles.
+2. QUALITY_SCORE: Assign 0-100% based on audience authenticity.
+3. REGIONAL_PROTOCOL: If @${handle} has a Desi/Indian audience, provide REVENUE POTENTIAL in INR (₹), adjusting for local market metrics.
 4. REVENUE_TAX: Revenue Potential Floor = (Followers * (QualityScore/100) * 0.01) * Price.
 
 Structure (MUST use ">" prefix on every line):
-> CREATOR AUDIT: [Identify Niche + Tactical profile summary]
-> FOLLOWER BASE: [Identify or estimate exact number]
+> CREATOR AUDIT: [Identify Niche + Profile assessment]
+> FOLLOWER BASE: [Specific Integer]
 > AUDIENCE QUALITY: [QUALITY_SCORE]%
 > ENGAGEMENT RATE: [Realistic percentage based on niche]
 > EXTRACTION POTENTIAL: [Calculate: Followers * (QualityScore/100) * EngagementRate as high-value active engagers]
 > REVENUE POTENTIAL FLOOR: ${symbol}[Final calculation based on Revenue_Tax protocol]
-> TACTICAL ANALYSIS: [Market gap analysis for ${country}. If Quality < 70%: emphasize AUDIENCE DILUTION. If Quality >= 70%: emphasize HIGH-CONVERSION ASSETS.]
+> TACTICAL ANALYSIS: [Market gap analysis for ${country}.]
 Keep it sharp, ALL CAPS for keywords, one line per section. Output ONLY ">" prefixed lines.`;
 
     try {
