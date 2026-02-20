@@ -44,13 +44,22 @@ export default async function handler(req, res) {
     // Using Llama-3.3-70b-versatile on Groq: High-performance OpenAI-compatible endpoint.
     const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-    const prompt = `Act as Shadow Protocol AI. Generate a STRATEGIC REVENUE AUDIT for @${handle} in ${country}.
-Data: ${currency}(${symbol}), target price ${symbol}${price}, 20% extraction floor.
-Structure (MUST use ">" prefix on every output line):
-> CREATOR OVERVIEW: [Direct, tactical profile assessment]
-> THE NUMBERS: Assuming 1,000 core buyers at 20% floor — PROJECTED REVENUE: ${symbol}[calculate: 1000 * 0.20 * ${price}]
-> DEMAND ANALYSIS: [High-intensity market gap analysis for ${country}]
-Keep it sharp, ALL CAPS for keywords, and strictly one line per section. No markdown. Output ONLY ">" prefixed lines.`;
+    const prompt = `Act as Shadow Protocol AI. Generate a HIGH-LEVEL STRATEGIC REVENUE AUDIT for @${handle} in ${country}.
+Financial Protocols:
+1. NICHE_ID: Categorize creator (e.g. Finance, Tech, Luxury, etc.)
+2. QUALITY_SCORE: Assign 0-100% based on audience authenticity and engagement depth.
+3. REGIONAL_PROTOCOL: If @${handle} has an Indian/Desi audience, provide REVENUE POTENTIAL in INR (₹) regardless of input currency, adjusting for local CPM and purchasing power (PPP).
+4. REVENUE_TAX: Revenue Potential Floor = (Followers * (QualityScore/100) * 0.01) * Price.
+
+Structure (MUST use ">" prefix on every line):
+> CREATOR AUDIT: [Identify Niche + Tactical profile summary]
+> FOLLOWER BASE: [Identify or estimate exact number]
+> AUDIENCE QUALITY: [QUALITY_SCORE]%
+> ENGAGEMENT RATE: [Realistic percentage based on niche]
+> EXTRACTION POTENTIAL: [Calculate: Followers * (QualityScore/100) * EngagementRate as high-value active engagers]
+> REVENUE POTENTIAL FLOOR: ${symbol}[Final calculation based on Revenue_Tax protocol]
+> TACTICAL ANALYSIS: [Market gap analysis for ${country}. If Quality < 70%: emphasize AUDIENCE DILUTION. If Quality >= 70%: emphasize HIGH-CONVERSION ASSETS.]
+Keep it sharp, ALL CAPS for keywords, one line per section. Output ONLY ">" prefixed lines.`;
 
     try {
         const response = await fetch(GROQ_URL, {

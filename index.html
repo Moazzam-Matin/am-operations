@@ -1936,13 +1936,24 @@
                 return data.text || '';
             }
 
-            // Parse revenue number from AI output
-            function parseRevenue(aiText) {
-                const match = aiText.match(/PROJECTED\s+REVENUE[:\s]+[^\d]*([\d,]+)/i);
-                if (match) {
-                    return parseInt(match[1].replace(/,/g, ''), 10);
-                }
-                return null;
+            // Parse revenue, metrics, and quality from AI output
+            function parseAIExtraction(aiText) {
+                const revenueMatch = aiText.match(/REVENUE POTENTIAL FLOOR[:\s]+[^\d]*([\d,]+)/i);
+                const followersMatch = aiText.match(/FOLLOWER BASE[:\s]+(.*?)(?=\n|$)/i);
+                const erMatch = aiText.match(/ENGAGEMENT RATE[:\s]+([\d.]+%?)/i);
+                const qualityMatch = aiText.match(/AUDIENCE QUALITY[:\s]+(\d+)/i);
+
+                // Detection for currency override (e.g. if AI returns ₹ instead of $)
+                let symbolOverride = null;
+                if (aiText.includes('₹') || aiText.includes('INR')) symbolOverride = '₹';
+
+                return {
+                    revenue: revenueMatch ? parseInt(revenueMatch[1].replace(/,/g, ''), 10) : null,
+                    followers: followersMatch ? followersMatch[1].trim() : "CALCULATING...",
+                    er: erMatch ? erMatch[1].trim() : "STABLE",
+                    quality: qualityMatch ? qualityMatch[1] : "95",
+                    symbolOverride
+                };
             }
 
             function revealRevenue(amount, symbol) {
@@ -1968,48 +1979,108 @@
 
             async function runExtractionSequence(handle, country, currency, price) {
                 clearTerminal();
-                const symbol = country.symbol;
+                let symbol = country.symbol;
+
+                // Fire AI Engine early for parallel execution
+                console.log("SHADOW_AI: Igniting engine...");
+                const aiPromise = callGroqEngine(handle, country, currency, symbol, price).catch(err => {
+                    console.error("AI_ENGINE_FAILURE:", err);
+                    return `> ERROR: AI ENGINE TIMEOUT\n> FOLLOWER BASE: 10,000 (ESTIMATED)\n> AUDIENCE QUALITY: 85%\n> ENGAGEMENT RATE: 2.5%\n> REVENUE POTENTIAL FLOOR: ${symbol}${Math.floor(price * 0.01 * 10000).toLocaleString()}`;
+                });
 
                 // Phase 1: Sequential Tactical Sequence with HARD DELAYS
                 const tacticalLines = [
                     { text: '> INITIALIZING SHADOW PROTOCOL...', cls: '' },
                     { text: '> ESTABLISHING ENCRYPTED TUNNEL...', cls: 'dim' },
                     { text: `> ACCESSING INSTAGRAM API FOR @${handle}...`, cls: '' },
-                    { text: '> SCANNING FOLLOWER ENGAGEMENT MATRIX...', cls: 'dim' },
-                    { text: '> HARVESTING RETENTION SIGNALS...', cls: 'dim' },
-                    { text: '> SCRAPING HIDDEN MARKET METADATA...', cls: 'dim' },
-                    { text: `> LOCATING GEOGRAPHIC MARKET: ${country.name.toUpperCase()}...`, cls: '' },
-                    { text: `> MATCHING REGIONAL CURRENCY: ${currency} (${symbol})...`, cls: '' },
-                    { text: '> CALCULATING 20% EXTRACTION FLOOR...', cls: '' },
-                    { text: '> CROSS-REFERENCING SHADOW DATABASE...', cls: 'dim' },
-                    { text: '> QUERYING SHADOW INTELLIGENCE ENGINE...', cls: 'gold' },
                 ];
 
                 for (const lineObj of tacticalLines) {
                     await printLineAfterDelay(lineObj.text, 0, lineObj.cls);
+
+                    // Trigger Verification after "ACCESSING INSTAGRAM API"
+                    if (lineObj.text.includes('ACCESSING INSTAGRAM API')) {
+                        await printLineAfterDelay('> VERIFYING TARGET EXISTENCE...', 500, '');
+
+                        const verifyHandle = async (h) => {
+                            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.instagram.com/${h}/`)}`;
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                            try {
+                                const resp = await fetch(proxyUrl, { signal: controller.signal });
+                                clearTimeout(timeoutId);
+                                if (!resp.ok) throw new Error('Proxy error');
+                                const json = await resp.json();
+                                // AllOrigins returns the content in json.contents.
+                                // Instagram mostly returns 404 for missing pages which AllOrigins reflects in status.
+                                if (json.status && json.status.http_code === 404) {
+                                    return 'NOT_FOUND';
+                                }
+                                return 'SUCCESS';
+                            } catch (e) {
+                                clearTimeout(timeoutId);
+                                if (e.name === 'AbortError') return 'TIMEOUT';
+                                return 'ERROR';
+                            }
+                        };
+
+                        const vResult = await verifyHandle(handle);
+
+                        if (vResult === 'NOT_FOUND') {
+                            await printLineAfterDelay('> ERROR: TARGET NOT FOUND IN INSTAGRAM DATABASE. TERMINATING...', 500, 'gold');
+                            isRunning = false;
+                            gearsSpinning = false;
+                            startBtn.classList.remove('disabled');
+                            startBtn.disabled = false;
+                            startBtn.innerHTML = '&#9654;&nbsp;&nbsp;RETRY';
+                            startBtn.style.background = '#D4AF37';
+                            startBtn.style.color = '#000';
+                            startBtn.style.opacity = '1';
+                            startBtn.style.cursor = 'pointer';
+                            return; // Stop extraction
+                        } else if (vResult === 'TIMEOUT') {
+                            await printLineAfterDelay('> VERIFICATION TIMEOUT: BYPASSING TO SHADOW ENGINE...', 500, 'dim');
+                        } else if (vResult === 'SUCCESS') {
+                            await printLineAfterDelay('> TARGET VERIFIED. PROCEEDING WITH EXTRACTION.', 500, 'dim');
+                        } else {
+                            await printLineAfterDelay('> VERIFICATION UNCERTAIN: PROCEEDING WITH HEURISTICS...', 500, 'dim');
+                        }
+                    }
+
                     await new Promise(resolve => setTimeout(resolve, 2000)); // Hard Wait Protocol
                 }
 
-                // Phase 1.5: Ghost Check (Simulated Operation)
+                // Phase 1.5: Ghost Check (Follower Extraction Feed)
                 await printLineAfterDelay(`> PINGING INSTAGRAM NODES FOR @${handle.toUpperCase()}...`, 500, 'gold');
                 await new Promise(r => setTimeout(r, 600));
-                await streamTextIntoLine(`[::::::::::::::::::::::::::::::] 100% - HANDSHAKE SUCCESSFUL`, 'dim', 15);
+
+                // Wait for AI metrics
+                const aiText = await aiPromise;
+                const { revenue, followers, er, quality, symbolOverride } = parseAIExtraction(aiText);
+                if (symbolOverride) symbol = symbolOverride;
+
+                await streamTextIntoLine(`> EXTRACTING AUDIENCE METRICS: ${followers}...`, 'gold', 20);
+                await new Promise(r => setTimeout(r, 500));
+                await streamTextIntoLine(`> ANALYZING AUDIENCE QUALITY METRICS: ${quality}%...`, '', 20);
+                await new Promise(r => setTimeout(r, 500));
+                await streamTextIntoLine(`> CALCULATING ENGAGEMENT MATRIX: ${er}${er.includes('%') ? '' : '%'}...`, 'gold', 20);
                 await new Promise(r => setTimeout(r, 800));
-                await printLineAfterDelay(`> PROFILE DETECTED. NO CORRUPTED DATA PACKS FOUND.`, 100, '');
+                await printLineAfterDelay(`> PROFILE ANALYZED. NO CORRUPTED DATA PACKS FOUND.`, 100, '');
                 await new Promise(r => setTimeout(r, 1000));
 
-                // Phase 2: Secure AI Extraction
-                let aiText = '';
-                try {
-                    aiText = await callGroqEngine(handle, country, currency, symbol, price);
-                } catch (err) {
-                    const isRateLimit = err.status === 429 || /quota/i.test(err.message) || /rate limit/i.test(err.message);
-                    if (isRateLimit) {
-                        await printLineAfterDelay('> GROQ RATE LIMIT REACHED. STANDING BY...', 500, 'gold');
-                        throw err; // Propagate to button listener for cooldown
-                    }
-                    // Fallback for other errors
-                    aiText = `> API_ERROR: ${err.message}\n> FALLING BACK TO LOCAL CALCULATION PROTOCOL...\n> PROJECTED REVENUE: ${symbol}${Math.floor(price * 0.20 * 1000).toLocaleString()}`;
+                // Rest of Tactical Sequence
+                const remainingTactical = [
+                    { text: '> CALCULATING NICHE-SPECIFIC CPM...', cls: 'dim' },
+                    { text: '> ADJUSTING FOR PURCHASING POWER PARITY...', cls: 'dim' },
+                    { text: '> HARVESTING RETENTION SIGNALS...', cls: 'dim' },
+                    { text: `> MATCHING REGIONAL CURRENCY: ${currency} (${symbol})...`, cls: '' },
+                    { text: '> QUERYING SHADOW INTELLIGENCE ENGINE...', cls: 'gold' },
+                ];
+
+                for (const lineObj of remainingTactical) {
+                    await printLineAfterDelay(lineObj.text, 0, lineObj.cls);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
                 }
 
                 await printLineAfterDelay('> DECRYPTING AI CORE ANALYSIS...', 100, 'dim');
@@ -2018,7 +2089,7 @@
                 const aiLines = aiText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
                 for (const aiLine of aiLines) {
-                    const isRevenueLine = /PROJECTED.*REVENUE/i.test(aiLine);
+                    const isRevenueLine = /REVENUE POTENTIAL FLOOR/i.test(aiLine);
                     await streamTextIntoLine(aiLine, isRevenueLine ? 'gold' : '', isRevenueLine ? 12 : 20);
                     await new Promise(r => setTimeout(r, 200));
                 }
@@ -2028,8 +2099,8 @@
                 await streamTextIntoLine('> RUNNING FINAL CALIBRATION...', 'dim', 30);
                 await new Promise(r => setTimeout(r, 1200));
 
-                const revenue = parseRevenue(aiText) ?? Math.floor(price * 0.20 * 1000);
-                revealRevenue(revenue, symbol);
+                const finalRevenue = revenue ?? Math.floor(price * 0.01 * 10000);
+                revealRevenue(finalRevenue, symbol);
             }
 
             // --- START Button ---
