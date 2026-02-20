@@ -1324,7 +1324,7 @@
         let backgroundScene, backgroundCamera, backgroundRenderer;
         let gearGroup;
         let gearLarge, gearMedium, gearSmall;
-        const OBSIDIAN_COLOR = 0x050505;
+        const OBSIDIAN_COLOR = 0x111111;
         const CHROME_COLOR = 0xFFFFFF;
         const baseSpeed = 0.002; // Heavy torque feel
 
@@ -1398,7 +1398,7 @@
             backgroundScene = new THREE.Scene();
 
             backgroundCamera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
-            backgroundCamera.position.set(0, 0, 30);
+            backgroundCamera.position.set(0, 0, 45); // Pulled back slightly for depth
 
             backgroundRenderer = new THREE.WebGLRenderer({
                 canvas: document.getElementById('three-canvas'),
@@ -1408,29 +1408,41 @@
             backgroundRenderer.setSize(window.innerWidth, window.innerHeight);
             backgroundRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-            // Obsidian Mirror Material
+            // Industrial Mirror Material (High-Fidelity Metal)
             const obsidianMaterial = new THREE.MeshPhysicalMaterial({
                 color: OBSIDIAN_COLOR,
                 metalness: 1.0,
-                roughness: 0.02,
-                envMapIntensity: 2.0,
-                clearcoat: 1.0,
-                clearcoatRoughness: 0.02
+                roughness: 0.05,
+                envMapIntensity: 1.5,
+                clearcoat: 0.8,
+                clearcoatRoughness: 0.1
             });
 
-            // Chrome Edge Material (Rim Light)
+            // Chrome Edge Material (Subtle glint lines)
             const chromeEdgeMaterial = new THREE.LineBasicMaterial({
                 color: CHROME_COLOR,
                 transparent: true,
-                opacity: 0.8
+                opacity: 0.4
             });
 
             gearGroup = new THREE.Group();
-            gearGroup.scale.set(0.6, 0.6, 0.6); // 40% reduction
-            gearGroup.position.set(0, 0, 0); // Exact center
+            gearGroup.scale.set(0.6, 0.6, 0.6);
+            gearGroup.position.set(0, 0, 0);
+
+            // Isometric perspective tilt
+            gearGroup.rotation.x = 0.4;
+            gearGroup.rotation.y = 0.2;
 
             const module = 0.6;
-            const extrudeSettings = { depth: 0.8, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05 };
+            // High-Fidelity 3D Parameters
+            const extrudeSettings = {
+                depth: 5,
+                bevelEnabled: true,
+                bevelThickness: 1,
+                bevelSize: 0.5,
+                bevelOffset: 0,
+                bevelSegments: 5
+            };
 
             function createIndustrialGear(teeth) {
                 const shape = createIndustrialGearShape(teeth, module);
@@ -1439,7 +1451,7 @@
 
                 const mesh = new THREE.Mesh(geometry, obsidianMaterial);
 
-                // Add Chrome Edges
+                // Add Subtle Chrome Edges for definition
                 const edges = new THREE.EdgesGeometry(geometry);
                 const line = new THREE.LineSegments(edges, chromeEdgeMaterial);
                 mesh.add(line);
@@ -1465,10 +1477,14 @@
 
             backgroundScene.add(gearGroup);
 
-            // Precision Lighting (Dynamic Glint)
-            const glintLight = new THREE.PointLight(0xFFFFFF, 2.5, 50);
-            glintLight.position.set(10, 10, 15);
+            // Industrial Lighting (Side-wall glint positioning)
+            const glintLight = new THREE.PointLight(0xFFFFFF, 3.5, 150);
+            glintLight.position.set(50, 50, 50);
             backgroundScene.add(glintLight);
+
+            const fillLight = new THREE.DirectionalLight(0xFFFFFF, 0.5);
+            fillLight.position.set(-20, 10, 20);
+            backgroundScene.add(fillLight);
 
             const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.1);
             backgroundScene.add(ambientLight);
