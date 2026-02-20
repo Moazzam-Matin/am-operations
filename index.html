@@ -960,6 +960,29 @@
             transform: translateY(0);
         }
 
+        /* Error Shake Animation */
+        @keyframes et-shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20%,
+            60% {
+                transform: translateX(-5px);
+            }
+
+            40%,
+            80% {
+                transform: translateX(5px);
+            }
+        }
+
+        .et-shake {
+            animation: et-shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
         .et-revenue-label {
             font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
@@ -1326,7 +1349,8 @@
         let gearLarge, gearMedium, gearSmall;
         const OBSIDIAN_COLOR = 0x111111;
         const CHROME_COLOR = 0xFFFFFF;
-        const baseSpeed = 0.002; // Heavy torque feel
+        let baseSpeed = 0.002; // Heavy torque feel
+        let gearsSpinning = true;
 
         /**
          * Industrial Gear Geometry: Short teeth, Hollow core, Solid disc.
@@ -1517,8 +1541,11 @@
 
             if (gearLarge && gearMedium && gearSmall) {
                 // Precise synchronized movement based on tooth ratios
+                const speedMult = gearsSpinning ? 1 : 0;
+                const currentSpeed = baseSpeed * speedMult;
+
                 // Large rotations (Clockwise)
-                gearLarge.rotation.z -= baseSpeed;
+                gearLarge.rotation.z -= currentSpeed;
 
                 // Medium rotations (Counter-Clockwise)
                 // Ratio: 40/24 = 1.666
@@ -1791,12 +1818,17 @@
                 // Clear all previous errors first
                 document.querySelectorAll('.et-input-wrap').forEach(w => w.classList.remove('error'));
                 document.querySelectorAll('.et-error-msg').forEach(m => m.classList.remove('visible'));
+                document.querySelector('.et-left').classList.remove('et-shake');
 
                 console.log("SHADOW_PROTOCOL: Validation initiated...");
 
-                if (!handle) {
+                // Regex Shield: Instagram Rules (1-30 chars, alnum + _ + ., no leading/trailing dot)
+                const handleRegex = /^(?!^[.])(?!.*[.]$)[a-zA-Z0-9._]{1,30}$/;
+
+                if (!handle || !handleRegex.test(handle)) {
                     document.getElementById('et-handle-wrap').classList.add('error');
                     document.getElementById('et-handle-error').classList.add('visible');
+                    document.getElementById('et-handle-error').textContent = handle ? "ERROR: INVALID HANDLE ARCHITECTURE" : "Handle required for authentication";
                     isValid = false;
                 }
 
@@ -1810,6 +1842,15 @@
                     document.getElementById('et-price-wrap').classList.add('error');
                     document.getElementById('et-price-error').classList.add('visible');
                     isValid = false;
+                }
+
+                if (!isValid) {
+                    // UI Feedback: Shake and Lockdown
+                    void document.querySelector('.et-left').offsetWidth; // Trigger reflow
+                    document.querySelector('.et-left').classList.add('et-shake');
+                    gearsSpinning = false;
+                } else {
+                    gearsSpinning = true;
                 }
 
                 return isValid;
@@ -1948,6 +1989,14 @@
                     await printLineAfterDelay(lineObj.text, 0, lineObj.cls);
                     await new Promise(resolve => setTimeout(resolve, 2000)); // Hard Wait Protocol
                 }
+
+                // Phase 1.5: Ghost Check (Simulated Operation)
+                await printLineAfterDelay(`> PINGING INSTAGRAM NODES FOR @${handle.toUpperCase()}...`, 500, 'gold');
+                await new Promise(r => setTimeout(r, 600));
+                await streamTextIntoLine(`[::::::::::::::::::::::::::::::] 100% - HANDSHAKE SUCCESSFUL`, 'dim', 15);
+                await new Promise(r => setTimeout(r, 800));
+                await printLineAfterDelay(`> PROFILE DETECTED. NO CORRUPTED DATA PACKS FOUND.`, 100, '');
+                await new Promise(r => setTimeout(r, 1000));
 
                 // Phase 2: Secure AI Extraction
                 let aiText = '';
