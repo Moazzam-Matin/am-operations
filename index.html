@@ -1459,20 +1459,25 @@
                 return mesh;
             }
 
-            // Heavy-Duty Gear Set
-            gearLarge = createIndustrialGear(32);
+            // Heavy-Duty Gear Set (Standardized Ratios)
+            // Teeth: 40 (Large), 24 (Medium), 16 (Small)
+            // Distance = (T1 + T2) * Module / 2
+            gearLarge = createIndustrialGear(40);
             gearGroup.add(gearLarge);
 
-            gearMedium = createIndustrialGear(18);
-            const dist12 = (32 + 18) * module / 2;
+            gearMedium = createIndustrialGear(24);
+            const dist12 = (40 + 24) * module / 2; // 19.2
             gearMedium.position.set(dist12, 0, 0);
-            gearMedium.rotation.z = Math.PI / 18;
+            // Initial Phase Offset: Tooth-to-Gap
+            gearMedium.rotation.z = Math.PI / 24;
             gearGroup.add(gearMedium);
 
-            gearSmall = createIndustrialGear(12);
-            const dist23 = (18 + 12) * module / 2;
+            gearSmall = createIndustrialGear(16);
+            const dist23 = (24 + 16) * module / 2; // 12.0
+            // Positioned in 'L' configuration above the Medium gear
             gearSmall.position.set(gearMedium.position.x, dist23, 0);
-            gearSmall.rotation.z = Math.PI / 12;
+            // Phase Offset for vertical engagement (90 degree shift)
+            gearSmall.rotation.z = Math.PI / 16;
             gearGroup.add(gearSmall);
 
             backgroundScene.add(gearGroup);
@@ -1511,10 +1516,19 @@
             lenis.raf(time);
 
             if (gearLarge && gearMedium && gearSmall) {
-                // Precise synchronized movement with heavy torque
+                // Precise synchronized movement based on tooth ratios
+                // Large rotations (Clockwise)
                 gearLarge.rotation.z -= baseSpeed;
-                gearMedium.rotation.z = -gearLarge.rotation.z * (32 / 18) + (Math.PI / 18);
-                gearSmall.rotation.z = -gearMedium.rotation.z * (18 / 12) + (Math.PI / 12);
+
+                // Medium rotations (Counter-Clockwise)
+                // Ratio: 40/24 = 1.666
+                gearMedium.rotation.z = -gearLarge.rotation.z * (40 / 24) + (Math.PI / 24);
+
+                // Small rotations (Clockwise)
+                // Ratio: 24/16 = 1.5
+                // Adjusted for the 90 degree relative position from Medium
+                // Using (MediumRotation - PI/2) to find phase at the vertical contact point
+                gearSmall.rotation.z = -(gearMedium.rotation.z - Math.PI / 2) * (24 / 16) + (Math.PI / 2) + (Math.PI / 16);
             }
 
             backgroundRenderer.render(backgroundScene, backgroundCamera);
